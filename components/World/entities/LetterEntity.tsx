@@ -27,14 +27,14 @@ const CheeseO: React.FC<{ groupRef: React.RefObject<THREE.Mesh> }> = ({ groupRef
         return new THREE.CylinderGeometry(0.96, 0.96, 0.32, 32);
     }, []);
 
-    // Material for the cheese sides (yellow edge)
+    // Material for the cheese sides (golden edge)
     const sideMaterial = useMemo(() => {
         return new THREE.MeshStandardMaterial({
-            color: '#F5DEB3',
-            emissive: '#DEB887',
-            emissiveIntensity: 0.5,
-            metalness: 0.1,
-            roughness: 0.4,
+            color: '#FFD700',
+            emissive: '#FFCC00',
+            emissiveIntensity: 1.0,
+            metalness: 0.3,
+            roughness: 0.2,
         });
     }, []);
 
@@ -44,9 +44,9 @@ const CheeseO: React.FC<{ groupRef: React.RefObject<THREE.Mesh> }> = ({ groupRef
             map: texture,
             transparent: true,
             emissive: '#FFCC00',
-            emissiveIntensity: 0.4,
-            metalness: 0.1,
-            roughness: 0.3,
+            emissiveIntensity: 1.0,
+            metalness: 0.3,
+            roughness: 0.2,
         });
     }, [texture]);
 
