@@ -10,7 +10,7 @@ const AboutScreen = lazy(() => import('./AboutScreen').then(m => ({ default: m.A
 const BUTTON_TEXT_GLOW = { textShadow: "0px 0px 4px rgba(255,255,255,0.5)" };
 
 export const BetControl: React.FC = () => {
-    const { betAmount, setBetAmount, balance } = useStore();
+    const { betAmount, setBetAmount, isFirstPersonMode, toggleFirstPersonMode } = useStore();
     const adjust = (delta: number) => setBetAmount(parseFloat((betAmount + delta).toFixed(2)));
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = parseFloat(e.target.value); if (!isNaN(val)) setBetAmount(val); };
     return (
@@ -34,10 +34,17 @@ export const BetControl: React.FC = () => {
                 </div>
                 <div className="text-xs text-gray-300 font-bold uppercase tracking-wider">🎯 Shot Cost</div>
             </div>
-            <div className="flex-1 bg-white/10 border-2 border-green-500/50 rounded-xl p-3 flex flex-col items-center justify-center shadow-inner">
-                <div className="text-[26px] font-black font-cyber text-green-400">{balance.toFixed(2)}</div>
-                <div className="text-xs text-gray-300 font-bold uppercase tracking-wider">💰 Wallet</div>
-            </div>
+            {/* Camera toggle */}
+            <button
+                onClick={toggleFirstPersonMode}
+                aria-label="Переключить камеру"
+                className="flex-1 bg-white/10 border-2 border-[#21468B]/50 rounded-xl p-3 flex flex-col items-center justify-center shadow-inner hover:bg-white/20 active:scale-95 transition-all"
+            >
+                <div className="text-[26px]">{isFirstPersonMode ? '🐭' : '🐁'}</div>
+                <div className="text-xs text-gray-300 font-bold uppercase tracking-wider">
+                    📷 {isFirstPersonMode ? 'FPS' : '3RD'}
+                </div>
+            </button>
         </div>
     );
 };

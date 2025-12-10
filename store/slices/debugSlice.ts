@@ -17,7 +17,7 @@ export const createDebugSlice: StateCreator<GameStore, [], [], DebugSlice> = (se
     isDevMode: false,
     isDevAuthenticated: false,
     isGodMode: false,
-    isFirstPersonMode: false,
+    isFirstPersonMode: true,
     debugEnemySpawnId: 0,
 
     toggleDevMode: () => {
