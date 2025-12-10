@@ -183,6 +183,7 @@ export class SpatialGrid {
 
     /**
      * Get enemies near a projectile for hit detection
+     * Uses radius=2 to cover sweep collision path (projectiles move fast)
      */
     getProjectileTargets(projX: number, projZ: number): GameObject[] {
         const targetTypes = [
@@ -193,7 +194,7 @@ export class SpatialGrid {
             ObjectType.BOSS,
             ObjectType.BOSS_AMMO
         ];
-        return this.getNearbyOfTypes(projX, projZ, targetTypes, 1);
+        return this.getNearbyOfTypes(projX, projZ, targetTypes, 2);
     }
 
     /**

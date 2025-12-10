@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Volume2, VolumeX, Pause } from 'lucide-react';
+// Volume and Pause icons removed - using emojis instead
 import { useStore } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
 import { GameStatus } from '../../types';
@@ -16,13 +16,12 @@ import {
     CountdownOverlay,
     BossHealthBar,
     FeverTimer,
-    PausedScreen,
+    SettingsScreen,
     LevelCompleteScreen,
     GameOverScreen,
     VictoryScreen,
     ActiveEffectsDisplay,
-    TouchZoneHints,
-    TouchFPSCounter
+    TouchZoneHints
 } from './GameOverlays';
 
 const LEVEL_PRELOAD_TIME = 3; // 3 seconds for level preloader
@@ -35,11 +34,10 @@ interface HUDProps {
 export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
     // Use shallow comparison to prevent unnecessary re-renders
     // Split into logical groups for better granularity
-    const { status, level, isMuted } = useStore(
+    const { status, level } = useStore(
         useShallow(state => ({
             status: state.status,
-            level: state.level,
-            isMuted: state.isMuted
+            level: state.level
         }))
     );
 
@@ -64,9 +62,8 @@ export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
     const pauseGame = useStore(state => state.pauseGame);
     const resumeGame = useStore(state => state.resumeGame);
     const toggleMute = useStore(state => state.toggleMute);
-    const openInventory = useStore(state => state.openInventory);
-    const closeInventory = useStore(state => state.closeInventory);
     const startLevelFromPreload = useStore(state => state.startLevelFromPreload);
+    const toggleFirstPersonMode = useStore(state => state.toggleFirstPersonMode);
 
     const speedMs = useMemo(() => speed.toFixed(1).replace('.', ','), [speed]);
     const shotsRemaining = useMemo(() => betAmount > 0 ? Math.floor(balance / betAmount) : 0, [balance, betAmount]);
@@ -118,37 +115,27 @@ export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
         startLevelFromPreload();
     };
 
-    // Double-tap ArrowDown to open inventory (max 1.5s between taps)
-    const lastArrowDownRef = useRef<number>(0);
-    const DOUBLE_TAP_THRESHOLD = 1500; // 1.5 seconds
-
+    // Keyboard shortcuts: M=mute, ESC=settings, V=view mode
+    // D key handled globally in App.tsx
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // D key handled globally in App.tsx
-            if (e.key === 'm' || e.key === 'M') toggleMute();
-            if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+            // M - toggle mute
+            if (e.key === 'm' || e.key === 'M') {
+                toggleMute();
+            }
+            // ESC - open/close settings
+            if (e.key === 'Escape') {
                 if (status === GameStatus.PLAYING || status === GameStatus.COUNTDOWN) pauseGame();
                 else if (status === GameStatus.PAUSED) resumeGame();
             }
-            if (e.key === 'ArrowDown') {
-                if (status === GameStatus.INVENTORY) {
-                    // Single tap closes inventory
-                    closeInventory();
-                } else if (status === GameStatus.PLAYING) {
-                    // Double-tap opens inventory
-                    const now = Date.now();
-                    if (now - lastArrowDownRef.current < DOUBLE_TAP_THRESHOLD) {
-                        openInventory();
-                        lastArrowDownRef.current = 0; // Reset
-                    } else {
-                        lastArrowDownRef.current = now;
-                    }
-                }
+            // V - toggle view mode (camera)
+            if (e.key === 'v' || e.key === 'V') {
+                toggleFirstPersonMode();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [status, pauseGame, resumeGame, toggleMute, openInventory, closeInventory]);
+    }, [status, pauseGame, resumeGame, toggleMute, toggleFirstPersonMode]);
 
     return (
         <div className={containerClass}>
@@ -166,7 +153,7 @@ export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
                     onStart={handleStartLevelFromPreload}
                 />
             )}
-            {status === GameStatus.PAUSED && <PausedScreen />}
+            {status === GameStatus.PAUSED && <SettingsScreen />}
             {status === GameStatus.LEVEL_COMPLETE && <LevelCompleteScreen />}
             {status === GameStatus.MENU && !hideMenu && <MenuScreen onStartRun={onStartRun} />}
             {status === GameStatus.GAME_OVER && <GameOverScreen />}
@@ -175,67 +162,52 @@ export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
             {/* Touch Zone Hints - показываем только на мобильных */}
             <TouchZoneHints />
 
-            {/* FPS Counter для мобильных устройств */}
-            <TouchFPSCounter />
-
-            {/* TOP BAR */}
-            <div className="flex flex-col w-full gap-2 pointer-events-auto">
+            {/* TOP BAR - only FeverTimer, no buttons (all controls in Settings) */}
+            <div className="flex flex-col w-full gap-2 pointer-events-none">
                 <div className="flex justify-between items-start w-full">
-                    {/* LEFT: Fever Timer + Mute (mute 30% below fever) */}
+                    {/* LEFT: Fever Timer only */}
                     <div className="flex flex-col items-start">
                         <FeverTimer />
-                        {/* Mute button - 30% screen height below fever timer */}
-                        <button onClick={(e) => { e.currentTarget.blur(); toggleMute(); }} tabIndex={-1} className="opacity-70 hover:opacity-100 transition-opacity flex items-center justify-center bg-blue-900/50 rounded-lg min-w-[44px] min-h-[44px] md:min-w-[48px] md:min-h-[48px] border border-white/10 mt-[30vh]">
-                            {isMuted ? <VolumeX className="w-5 h-5 md:w-6 md:h-6 text-white" /> : <Volume2 className="w-5 h-5 md:w-6 md:h-6 text-white" />}
-                        </button>
                     </div>
-
-                    {/* RIGHT: Pause (30% below top) */}
-                    <div className="flex flex-col items-end">
-                        {/* Pause button - 30% screen height below top */}
-                        <button onClick={(e) => { e.currentTarget.blur(); pauseGame(); }} tabIndex={-1} className="opacity-70 hover:opacity-100 transition-opacity flex items-center justify-center bg-blue-900/50 rounded-lg min-w-[44px] min-h-[44px] md:min-w-[48px] md:min-h-[48px] border border-white/10 mt-[30vh]">
-                            <Pause className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                        </button>
-                    </div>
+                    {/* RIGHT: empty - all controls moved to Settings */}
                 </div>
             </div>
 
-            {/* CENTER: KAASINO Logo with letter highlighting - no background */}
+            {/* CENTER: KAASINO Logo - letter-by-letter coloring from left to right */}
             <div className={`absolute ${isLandscape ? 'top-2' : 'top-6'} left-1/2 -translate-x-1/2 pointer-events-auto`}>
-                <div className={`relative ${isLandscape ? 'w-[150px] h-[45px]' : 'w-[200px] h-[60px]'} md:w-[240px] md:h-[70px]`}>
-                    {/* Base dimmed logo */}
-                    <img
-                        src="/kaasino_logo_full.png"
-                        alt="KAASINO"
-                        className="absolute inset-0 w-full h-full object-contain opacity-30 brightness-50"
-                    />
-                    {/* Individual letter overlays - bright with glow when collected */}
-                    {/* Letter positions adjusted for KAASINO logo proportions */}
-                    {[
-                        { start: 0, end: 13 },      // K - wider
-                        { start: 13, end: 27 },     // A - wider
-                        { start: 27, end: 41 },     // A - wider
-                        { start: 41, end: 55 },     // S - medium
-                        { start: 55, end: 63 },     // I - narrow
-                        { start: 63, end: 80 },     // N - wider
-                        { start: 80, end: 100 },    // O - wider
-                    ].map((pos, idx) => {
-                        const isCollected = collectedLetters.includes(idx);
-                        if (!isCollected) return null;
-                        return (
+                {/* Each collected letter (by order 0-6) lights up corresponding position in logo */}
+                {(() => {
+                    // Count how many letters collected in order (0,1,2,3,4,5,6)
+                    // Letters light up left-to-right based on collection order
+                    const litCount = collectedLetters.length;
+                    const isComplete = litCount === 7;
+                    // Calculate percentage of logo to show as bright (each letter = ~14.3%)
+                    const litPercent = (litCount / 7) * 100;
+
+                    return (
+                        <div className={`relative ${isLandscape ? 'h-[36px]' : 'h-[48px]'} md:h-[56px]`}>
+                            {/* Base: dim logo (always visible) */}
                             <img
-                                key={idx}
-                                src="/kaasino_logo_full.png"
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-contain"
+                                src="/kaas_logo_start.png"
+                                alt="KAASINO"
+                                className="h-full w-auto object-contain"
+                            />
+                            {/* Overlay: bright logo clipped to show only collected portion */}
+                            <img
+                                src="/kaas_logo_end.png"
+                                alt="KAASINO"
+                                className="absolute top-0 left-0 h-full w-auto object-contain"
                                 style={{
-                                    clipPath: `inset(0 ${100 - pos.end}% 0 ${pos.start}%)`,
-                                    filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.6)) drop-shadow(0 0 1px rgba(255,215,0,0.4))',
+                                    clipPath: `inset(0 ${100 - litPercent}% 0 0)`,
+                                    filter: isComplete
+                                        ? 'drop-shadow(0 0 12px rgba(255,215,0,0.9)) drop-shadow(0 0 6px rgba(255,200,0,0.7))'
+                                        : 'none',
+                                    transition: 'clip-path 0.4s ease-out, filter 0.4s ease-out',
                                 }}
                             />
-                        );
-                    })}
-                </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* BOTTOM: Info blocks - unified layout for all devices (no visible buttons/joystick) */}
@@ -259,7 +231,7 @@ export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
                     </div>
                 </div>
 
-                {/* RIGHT: Level, Speed, Active Effects + Bag button */}
+                {/* RIGHT: Level, Speed, Active Effects + Settings button */}
                 <div className={`${isLandscape ? 'pr-3' : 'pr-4'} flex flex-col items-end gap-1`}>
                     <div className="pointer-events-none">
                         <ActiveEffectsDisplay />
@@ -274,13 +246,13 @@ export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
                         <span className="text-yellow-400 mr-1 text-sm">🏁</span>
                         <span className="text-yellow-400 font-mono font-black text-xs">{level}</span>
                     </div>
-                    {/* Bag button - height x2 of info block */}
+                    {/* Settings button - opens settings/pause screen */}
                     <button
-                        onClick={(e) => { e.currentTarget.blur(); openInventory(); }}
+                        onClick={(e) => { e.currentTarget.blur(); pauseGame(); }}
                         tabIndex={-1}
-                        className="pointer-events-auto opacity-80 hover:opacity-100 transition-opacity flex items-center justify-center bg-[#0F172A]/60 border border-amber-900/30 rounded-lg backdrop-blur-sm px-3 py-3 mt-1"
+                        className="pointer-events-auto opacity-80 hover:opacity-100 transition-opacity flex items-center justify-center bg-[#0F172A]/60 border border-yellow-900/30 rounded-lg backdrop-blur-sm px-3 py-3 mt-1"
                     >
-                        <span className="text-2xl">💼</span>
+                        <span className="text-2xl">⚙️</span>
                     </button>
                 </div>
             </div>

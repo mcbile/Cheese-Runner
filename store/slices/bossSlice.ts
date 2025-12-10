@@ -17,11 +17,17 @@ export const createBossSlice: StateCreator<GameStore, [], [], BossSlice> = (set,
     bossHealth: 0,
     bossMaxHealth: 0,
     bossSpawnId: 0,
+    bossChargePhase: 0,
+    bossChargeLane: 0,
+    bossChargeWidth: 1,
 
     setBossActive: (active, maxHp) => set({
         isBossActive: active,
         bossHealth: maxHp,
-        bossMaxHealth: maxHp
+        bossMaxHealth: maxHp,
+        bossChargePhase: 0,
+        bossChargeLane: 0,
+        bossChargeWidth: 1
     }),
 
     updateBossHealth: (hp) => set({ bossHealth: hp }),
@@ -47,5 +53,11 @@ export const createBossSlice: StateCreator<GameStore, [], [], BossSlice> = (set,
             bossDying: false,
             bossDeathComplete: true
         });
-    }
+    },
+
+    updateBossChargeState: (phase, lane, width) => set({
+        bossChargePhase: phase,
+        bossChargeLane: lane,
+        bossChargeWidth: width
+    })
 });

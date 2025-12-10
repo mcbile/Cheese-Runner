@@ -12,7 +12,7 @@ import { INITIAL_STATS } from '../utils';
 
 export const createEconomySlice: StateCreator<GameStore, [], [], EconomySlice> = (set, get) => ({
     balance: 100.00,
-    betAmount: 0.10,
+    betAmount: 1.00,
     levelStats: { ...INITIAL_STATS },
 
     setBetAmount: (amount) => {

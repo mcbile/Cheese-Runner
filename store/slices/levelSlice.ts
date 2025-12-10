@@ -7,13 +7,12 @@
 
 import { StateCreator } from 'zustand';
 import { GameStatus, getLevelStartSpeed } from '../../types';
-import { audio } from '../../components/System/Audio';
 import { GameStore, LevelSlice } from '../types';
 import { INITIAL_STATS, clearAllTimers, MAX_LEVEL, getLaneCountForLevel } from '../utils';
 
 export const createLevelSlice: StateCreator<GameStore, [], [], LevelSlice> = (set, get) => ({
     startGame: () => {
-        const { difficulty, chasingSnakesActive, inventory, level: currentLevel, laneCount: currentLaneCount, speed: currentSpeed } = get();
+        const { difficulty, inventory, level: currentLevel, laneCount: currentLaneCount, speed: currentSpeed } = get();
 
         // If level > 1, we're starting from dev console - preserve level/lanes/speed
         const isDevStart = currentLevel > 1;
@@ -38,7 +37,8 @@ export const createLevelSlice: StateCreator<GameStore, [], [], LevelSlice> = (se
             isCheeseFeverActive: false,
             isFirewallActive: false,
             isSpeedBoostActive: false,
-            chasingSnakesActive: chasingSnakesActive,
+            chasingSnakesActive: false, // Reset on new game start
+            enemyRushProgress: { snake: false, cat: false, owl: false },
             cheeseFeverEndTime: 0,
             levelStats: { ...INITIAL_STATS },
             inventory: inventory,
@@ -74,6 +74,7 @@ export const createLevelSlice: StateCreator<GameStore, [], [], LevelSlice> = (se
             isFirewallActive: false,
             isSpeedBoostActive: false,
             chasingSnakesActive: false,
+            enemyRushProgress: { snake: false, cat: false, owl: false },
             cheeseFeverEndTime: 0,
             levelStats: { ...INITIAL_STATS },
             inventory: {},
@@ -122,7 +123,7 @@ export const createLevelSlice: StateCreator<GameStore, [], [], LevelSlice> = (se
 
         clearAllTimers();
 
-        // Start from level 1 after victory - keeps score, inventory, balance, betAmount, chasingSnakes, maxLives (min 5)
+        // Start from level 1 after victory - keeps score, inventory, balance, betAmount, maxLives (min 5)
         const newMaxLives = Math.max(5, maxLives);
 
         set({
@@ -141,6 +142,8 @@ export const createLevelSlice: StateCreator<GameStore, [], [], LevelSlice> = (se
             isCheeseFeverActive: false,
             isFirewallActive: false,
             isSpeedBoostActive: false,
+            chasingSnakesActive: false, // Reset on new run
+            enemyRushProgress: { snake: false, cat: false, owl: false },
             cheeseFeverEndTime: 0,
             levelStats: { ...INITIAL_STATS },
             wordCompleted: false,
@@ -149,13 +152,13 @@ export const createLevelSlice: StateCreator<GameStore, [], [], LevelSlice> = (se
             bossDeathComplete: false,
             isBossActive: false,
             bossSpawnId: 0
-            // Preserved: score, inventory, chasingSnakesActive, betAmount, balance
+            // Preserved: score, inventory, betAmount, balance
         });
     },
 
     triggerLevelComplete: () => {
         const { level, score } = get();
-        audio.pauseAudio();
+        // Audio sync handled by useAudioSync hook
 
         // On final level, trigger victory instead of level complete
         if (level >= MAX_LEVEL) {
@@ -174,9 +177,7 @@ export const createLevelSlice: StateCreator<GameStore, [], [], LevelSlice> = (se
 
         // Get starting speed for next level from table
         const newSpeed = getLevelStartSpeed(nextLevel, difficulty);
-
-        audio.resumeAudio();
-        audio.startMusic();
+        // Audio sync handled by useAudioSync hook
 
         const nextLaneCount = getLaneCountForLevel(nextLevel);
         const newMaxLives = maxLives + 1;

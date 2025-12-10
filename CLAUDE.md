@@ -19,7 +19,7 @@ npm run build        # Build for production
 npm run preview      # Preview production build
 ```
 
-The dev server runs on `0.0.0.0:3000`.
+The dev server runs on `localhost:3000`.
 
 ## Architecture
 
@@ -84,7 +84,7 @@ Handles all dynamic game objects via event-driven architecture:
 - `MOUSETRAP` - Static hazards, pay 1x bet on destruction
 - `SNAKE` - Diagonal-moving enemies (HP 1), pay 2x bet on kill
 - `CAT` - Lane-changing enemies (HP 2), pay 3x bet on kill
-- `EAGLE` - Flying enemies (Owls 🦉), HP 3, pay 5x bet on kill
+- `EAGLE` - Flying enemies (Owls), HP 3, pay 5x bet on kill
 - `CHEESE` - Collectibles for points
 - `LETTER` - Spell "KAASINO" to trigger boss
 - `BOSS` (Doctor) - End-of-level boss with HP system
@@ -96,8 +96,8 @@ Handles all dynamic game objects via event-driven architecture:
 - Objects spawn at SPAWN_DISTANCE (120 units) ahead, removed at REMOVE_DISTANCE (-20 units) behind
 - Letter spacing increases exponentially per level: `BASE_INTERVAL * 1.5^(level-1)`
 - Boss sequence triggers when all 7 letters collected (wordCompleted flag)
-- Enemy unlock progression: Snakes first → Cats unlock after 2 snakes cross z=0 OR 2 snakes killed → Owls 🦉 unlock after 2 cats cross z=0 OR 2 cats killed
-- Cats can dynamically spawn Owls 🦉 when player is nearby (if owls unlocked)
+- Enemy spawn triggers: 1 Cat spawns after every 2 Snake kills → 1 Owl spawns after every Cat kill
+- Only 1 Cat OR 1 Owl allowed on road at a time
 - Chasing Snakes mode (shop perk) reduces snake spawn interval from 15 to 10
 
 **Collision Detection**:
@@ -111,7 +111,7 @@ React-based overlay with multiple screens:
 
 - **Menu** - Difficulty selection, tutorial access
 - **In-Game HUD** - Lives, score, balance, word progress, joystick controls
-- **Shop** - Two tabs (Consumables/Upgrades), dynamic pricing based on bet amount
+- **Shop** - 3x2 grid layout (Consumables + Upgrades), dynamic pricing based on bet amount
 - **Inventory** - Consumable item management during gameplay
 - **Level Complete** - Stats screen showing earnings breakdown
 - **Game Over/Victory** - Final stats with restart option
@@ -123,12 +123,12 @@ Players bet money (0.1€ to 50€) per shot:
 - Mousetraps: 1 HP, 1x bet reward
 - Snakes: 1 HP, 2x bet reward
 - Cats: 2 HP, 3x bet reward
-- Owls 🦉: 3 HP, 5x bet reward
+- Owls: 3 HP, 5x bet reward
 - Boss: 120% of MaxHP × bet reward
 
 Shop items use two pricing models:
 - Fixed Points (consumables like Heal Potion: 1000pts)
-- Bet Multiplier (upgrades like Extra Heart: 10× current bet in Euros)
+- Bet Multiplier (upgrades like Extra Life: 10× current bet in Euros)
 
 ### Audio System (components/System/Audio.ts)
 
@@ -141,7 +141,7 @@ Centralized audio manager handling:
 ### Level Progression
 
 Levels scale dynamically:
-- **Lane Count**: 3 + (level - 1) → Results in 3, 4, 5, 6, 7 lanes
+- **Lane Count**: Level 1 → 3 lanes, Levels 2-4 → 4 lanes, Level 5 → 5 lanes
 - **Speed Increase**: +30% of base speed per level, +5% per letter collected
 - **Difficulty Modes**: EASY (0.75× speed, 0.5× points), MEDIUM (1×), HARD (1.25× speed, 2× points)
 - **Max Level**: 5 (defined in store.ts)

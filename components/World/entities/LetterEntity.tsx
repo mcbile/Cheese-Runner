@@ -1,69 +1,161 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * 3D Letter Entity - Volumetric glowing letters for KAASINO word collection
  */
 
-import React, { useRef, Suspense } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useRef, useMemo } from 'react';
+import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Text3D, Center, Float, Text } from '@react-three/drei';
-import { GameObject, GameStatus } from '../../../types';
+import { Float, Text3D, Center } from '@react-three/drei';
+import { LetterObject, GameStatus } from '../../../types';
 import { useStore } from '../../../store';
 import { SHADOW_LETTER_GEO } from '../geometries';
-import { getFontUrl } from '../utils/fontLoader';
 
 interface LetterEntityProps {
-    data: GameObject;
+    data: LetterObject;
 }
 
+/**
+ * 3D Cheese wheel for letter O - uses O.png texture on both faces
+ */
+const CheeseO: React.FC<{ groupRef: React.RefObject<THREE.Mesh> }> = ({ groupRef }) => {
+    const texture = useLoader(THREE.TextureLoader, '/O.png');
+
+    // Create cylinder geometry for cheese wheel
+    const geometry = useMemo(() => {
+        return new THREE.CylinderGeometry(1.2, 1.2, 0.4, 32);
+    }, []);
+
+    // Material for the cheese sides (yellow edge)
+    const sideMaterial = useMemo(() => {
+        return new THREE.MeshStandardMaterial({
+            color: '#F5DEB3',
+            emissive: '#DEB887',
+            emissiveIntensity: 0.5,
+            metalness: 0.1,
+            roughness: 0.4,
+        });
+    }, []);
+
+    // Material for both faces with texture
+    const faceMaterial = useMemo(() => {
+        return new THREE.MeshStandardMaterial({
+            map: texture,
+            transparent: true,
+            emissive: '#FFCC00',
+            emissiveIntensity: 0.4,
+            metalness: 0.1,
+            roughness: 0.3,
+        });
+    }, [texture]);
+
+    // CylinderGeometry materials order: [side, top, bottom]
+    return (
+        <group position={[0, 0.8, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <mesh ref={groupRef} geometry={geometry} material={[sideMaterial, faceMaterial, faceMaterial]} />
+        </group>
+    );
+};
+
+/**
+ * 3D Letter component with glow effect
+ * All letters are beige/cream colored with warm glow
+ * Letter O uses cheese wheel texture (O.png)
+ */
 export const LetterEntity: React.FC<LetterEntityProps> = ({ data }) => {
     const groupRef = useRef<THREE.Group>(null);
-    const { status } = useStore();
+    const letterRef = useRef<THREE.Mesh>(null);
+    const { status, collectedLetters } = useStore();
+
+    // Check if this letter is already collected (don't render)
+    // targetIndex corresponds to position in KAASINO: K=0, A=1, A=2, S=3, I=4, N=5, O=6
+    const isCollected = collectedLetters.includes(data.targetIndex);
+
+    // Beige/cream color theme for regular letters
+    const letterColor = '#F5DEB3'; // Wheat/beige
+    const emissiveColor = '#DEB887'; // Burlywood - warm beige glow
+
+    // Check if this is letter O (cheese wheel)
+    const isLetterO = data.value === 'O';
 
     useFrame((state, delta) => {
+        // Skip updates for collected letters
+        if (isCollected) return;
         if (!groupRef.current) return;
         groupRef.current.position.set(data.position[0], data.position[1], data.position[2]);
 
         if (status === GameStatus.PAUSED || status === GameStatus.COUNTDOWN) return;
 
-        groupRef.current.rotation.y += delta * 2;
+        // Rotate the letter - 30% faster (2 * 1.3 = 2.6)
+        groupRef.current.rotation.y += delta * 2.6;
+
+        // Pulsing glow effect for regular letters
+        if (letterRef.current && !isLetterO) {
+            const mat = letterRef.current.material as THREE.MeshStandardMaterial;
+            if (mat.emissiveIntensity !== undefined) {
+                mat.emissiveIntensity = 0.6 + Math.sin(state.clock.elapsedTime * 4) * 0.4;
+            }
+        }
     });
+
+    // Don't render collected letters (after all hooks)
+    if (isCollected) {
+        return null;
+    }
 
     return (
         <group ref={groupRef}>
-            <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-                <Center>
-                    <Suspense fallback={
-                        <Text
-                            fontSize={1.44}
-                            color="#FFFF00"
-                            anchorX="center"
-                            anchorY="middle"
-                        >
-                            {data.value}
-                            <meshStandardMaterial color="#FFFF00" emissive="#FFFF00" emissiveIntensity={1.5} toneMapped={false} />
-                        </Text>
-                    }>
+            <Float speed={3} rotationIntensity={0.3} floatIntensity={0.8}>
+                {isLetterO ? (
+                    // Letter O - 3D cheese wheel with texture
+                    <CheeseO groupRef={letterRef} />
+                ) : (
+                    // Regular 3D letters (K, A, A, S, I, N)
+                    <Center position={[0, 0.5, 0]}>
                         <Text3D
-                            font={getFontUrl()}
-                            size={1.44}
-                            height={0.24}
+                            ref={letterRef}
+                            font="/fonts/helvetiker_bold.typeface.json"
+                            size={1.8}
+                            height={0.4}
                             curveSegments={12}
                             bevelEnabled
-                            bevelThickness={0.024}
-                            bevelSize={0.024}
-                            bevelOffset={0}
+                            bevelThickness={0.08}
+                            bevelSize={0.04}
                             bevelSegments={5}
                         >
                             {data.value}
-                            <meshStandardMaterial color="#FFFF00" emissive="#FFFF00" emissiveIntensity={1.5} toneMapped={false} />
+                            <meshStandardMaterial
+                                color={letterColor}
+                                emissive={emissiveColor}
+                                emissiveIntensity={0.8}
+                                metalness={0.3}
+                                roughness={0.2}
+                            />
                         </Text3D>
-                    </Suspense>
-                </Center>
+                    </Center>
+                )}
             </Float>
-            <pointLight color="#FFFF00" intensity={3} distance={6} />
+
+            {/* Bright point light for glow effect */}
+            <pointLight
+                color={isLetterO ? '#FFD700' : '#F5DEB3'}
+                intensity={isLetterO ? 10 : 8}
+                distance={12}
+            />
+
+            {/* Secondary ambient glow */}
+            <pointLight
+                color={isLetterO ? '#FFAA00' : '#DEB887'}
+                intensity={isLetterO ? 6 : 4}
+                distance={6}
+                position={[0, 1, 0]}
+            />
+
+            {/* Shadow on ground */}
             <mesh geometry={SHADOW_LETTER_GEO} position={[0, -1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <meshBasicMaterial color="#000000" opacity={0.3} transparent />
+                <meshBasicMaterial color="#000000" opacity={0.4} transparent />
             </mesh>
         </group>
     );

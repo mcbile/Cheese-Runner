@@ -63,7 +63,7 @@ const MissionPage: React.FC = () => (
 
             {/* Levels */}
             <div className="bg-white/5 rounded-lg border border-blue-500/40 p-1.5 flex flex-col items-center justify-center text-center">
-                <span className="text-4xl">📈</span>
+                <span className="text-4xl">🏁</span>
                 <span className="font-black text-blue-400 text-base">LEVELS</span>
                 <span className="text-sm text-gray-300">3→4→5 lanes</span>
                 <span className="text-xs text-gray-400">Speed increases</span>
@@ -227,11 +227,11 @@ const PowerupsPage: React.FC = () => (
                 <span className="text-sm text-orange-400 font-bold">10 sec</span>
             </div>
 
-            {/* Heart */}
+            {/* Heal */}
             <div className="bg-white/5 rounded-lg border border-green-500/40 px-1.5 py-2 flex flex-col items-center justify-center text-center">
                 <span className="text-5xl">💊</span>
-                <span className="font-black text-green-400 text-lg">HEART</span>
-                <span className="text-base text-gray-300">+1 Life</span>
+                <span className="font-black text-green-400 text-lg">HEAL</span>
+                <span className="text-base text-gray-300">Restore 1 life</span>
                 <span className="text-sm text-green-400 font-bold">Only at 1 life</span>
             </div>
         </div>
@@ -246,21 +246,21 @@ const ShopPage: React.FC = () => (
             <span className="text-base font-black text-yellow-400">🛒 SHOP • After each level!</span>
         </div>
 
-        {/* Row 1: HEAL POTION (1000 pts) + EXTRA HEART (10x BET) */}
+        {/* Row 1: HEAL POTION (1000 pts) + EXTRA LIFE (10x BET) */}
         <div className="grid grid-cols-2 gap-1.5">
             <div className="bg-white/5 rounded-lg border border-red-500/40 px-2 py-3 flex items-center gap-2">
                 <span className="text-3xl">💊</span>
                 <div className="flex flex-col">
                     <span className="font-black text-red-400 text-sm">HEAL POTION</span>
-                    <span className="text-[10px] text-gray-400">+1 ❤️</span>
+                    <span className="text-[10px] text-gray-400">Restore 1 life</span>
                     <span className="text-yellow-400 font-mono text-xs font-bold">1000 pts</span>
                 </div>
             </div>
-            <div className="bg-white/5 rounded-lg border border-pink-500/40 px-2 py-3 flex items-center gap-2">
+            <div className="bg-white/5 rounded-lg border border-rose-500/40 px-2 py-3 flex items-center gap-2">
                 <span className="text-3xl">❤️</span>
                 <div className="flex flex-col">
-                    <span className="font-black text-pink-400 text-sm">EXTRA HEART</span>
-                    <span className="text-[10px] text-gray-400">Max +1</span>
+                    <span className="font-black text-rose-400 text-sm">EXTRA LIFE</span>
+                    <span className="text-[10px] text-gray-400">+1 Max Life</span>
                     <span className="text-green-400 font-mono text-xs font-bold">10x BET</span>
                 </div>
             </div>
@@ -286,7 +286,7 @@ const ShopPage: React.FC = () => (
             </div>
         </div>
 
-        {/* Row 3: ENEMY RUSH (3000 pts) + MORE CHEESE (30x BET) */}
+        {/* Row 3: ENEMY RUSH (3000 pts) + CHEESE EXCHANGE (30x BET) */}
         <div className="grid grid-cols-2 gap-1.5">
             <div className="bg-white/5 rounded-lg border border-purple-500/40 px-2 py-3 flex items-center gap-2">
                 <span className="text-3xl">⚡️</span>
@@ -299,7 +299,7 @@ const ShopPage: React.FC = () => (
             <div className="bg-white/5 rounded-lg border border-yellow-500/40 px-2 py-3 flex items-center gap-2">
                 <span className="text-3xl">🏦</span>
                 <div className="flex flex-col">
-                    <span className="font-black text-yellow-400 text-sm">MORE CHEESE</span>
+                    <span className="font-black text-yellow-400 text-sm">CHEESE EXCHANGE</span>
                     <span className="text-[10px] text-gray-400">+5000 pts</span>
                     <span className="text-green-400 font-mono text-xs font-bold">30x BET</span>
                 </div>
@@ -308,7 +308,7 @@ const ShopPage: React.FC = () => (
     </div>
 );
 
-// Page 6: Controls - Swipe gestures + keyboard
+// Page 6: Controls - Touch gestures + keyboard shortcuts (keyboard only for non-touch)
 const ControlsPage: React.FC = () => (
     <div className="flex flex-col gap-1.5 h-full">
         {/* Smartphone / Touch banner */}
@@ -339,18 +339,18 @@ const ControlsPage: React.FC = () => (
                     <div className="text-xs text-gray-300">Jump</div>
                 </div>
             </div>
-            <div className="bg-white/5 rounded-lg border border-amber-500/40 p-2 flex items-center gap-2">
-                <span className="text-3xl">💼</span>
+            <div className="bg-white/5 rounded-lg border border-yellow-500/40 p-2 flex items-center gap-2">
+                <span className="text-3xl">⚙️</span>
                 <div>
-                    <span className="text-sm font-black text-amber-400">BAG BTN</span>
-                    <div className="text-xs text-gray-300">Inventory</div>
+                    <span className="text-sm font-black text-yellow-400">SETTINGS</span>
+                    <div className="text-xs text-gray-300">Bag, Sound, Camera</div>
                 </div>
             </div>
         </div>
 
-        {/* Desktop / Keyboard banner */}
+        {/* Desktop / Keyboard banner - only for non-touch */}
         <div className="mt-1 bg-gradient-to-r from-purple-900/50 to-violet-800/40 rounded-lg p-1.5 border border-purple-500/50 text-center">
-            <span className="text-sm font-black text-purple-400 uppercase tracking-wider">🖥️ Desktop / Keyboard</span>
+            <span className="text-sm font-black text-purple-400 uppercase tracking-wider">🖥️ Keyboard Shortcuts</span>
         </div>
 
         {/* Keyboard controls - row 1 (3 cards) */}
@@ -365,23 +365,23 @@ const ControlsPage: React.FC = () => (
             </div>
             <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
                 <span className="text-base font-black text-cyan-400">SPACE</span>
-                <div className="text-xs font-bold text-white">Shoot</div>
+                <div className="text-xs font-bold text-white">🎯 Shoot</div>
             </div>
         </div>
 
-        {/* Keyboard controls - row 2 (3 cards) */}
+        {/* Keyboard controls - row 2 (3 cards): ESC, M, V */}
         <div className="grid grid-cols-3 gap-1.5">
             <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
-                <span className="text-base font-black text-cyan-400">2×↓</span>
-                <div className="text-xs font-bold text-white">💼 Bag</div>
-            </div>
-            <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
                 <span className="text-base font-black text-cyan-400">ESC</span>
-                <div className="text-xs font-bold text-white">⏸️ Pause</div>
+                <div className="text-xs font-bold text-white">⚙️ Settings</div>
             </div>
             <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
                 <span className="text-base font-black text-cyan-400">M</span>
                 <div className="text-xs font-bold text-white">🔇 Mute</div>
+            </div>
+            <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
+                <span className="text-base font-black text-cyan-400">V</span>
+                <div className="text-xs font-bold text-white">🐭 View</div>
             </div>
         </div>
     </div>

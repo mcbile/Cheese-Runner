@@ -1,0 +1,1 @@
+import{c as n,R as s}from"./vendor-r3f-D4666GjV.js";const r=t=>t;function u(t,e=r){const c=s.useSyncExternalStore(t.subscribe,s.useCallback(()=>e(t.getState()),[t,e]),s.useCallback(()=>e(t.getInitialState()),[t,e]));return s.useDebugValue(c),c}const o=t=>{const e=n(t),c=a=>u(e,a);return Object.assign(c,e),c},b=(t=>o);export{b as c};

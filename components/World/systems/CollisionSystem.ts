@@ -29,6 +29,7 @@ export interface CollisionCallbacks {
     onDefeatBoss: () => void;
     onUpdateBossHealth: (health: number) => void;
     onParticleBurst: (position: [number, number, number], color: string, amount?: number, intensity?: number) => void;
+    onSpawnMoneyEffect: (position: [number, number, number], count: number) => void;
 }
 
 export interface CollisionResult {
@@ -49,12 +50,22 @@ export function checkBossChargeCollision(
     }
 
     const playerLane = Math.round(playerPos.x / LANE_WIDTH);
-    const bossLane = obj.chargeLane || 0;
+    const chargeLane = obj.chargeLane ?? 0;
     const chargeWidth = obj.chargeWidth || 1;
 
-    const halfWidth = Math.floor(chargeWidth / 2);
-    const laneDiff = Math.abs(playerLane - bossLane);
-    const inChargeWidth = laneDiff <= halfWidth;
+    // chargeLane = CENTER of attack zone (consistent across all widths)
+    // Width 1: integer lane, zone = [chargeLane]
+    // Width 2: half lane (0.5, 1.5...), zone = [floor, ceil]
+    // Width 3: integer lane, zone = [chargeLane-1, chargeLane, chargeLane+1]
+    let inChargeWidth = false;
+    if (chargeWidth === 1) {
+        inChargeWidth = playerLane === chargeLane;
+    } else if (chargeWidth === 2) {
+        // chargeLane is between two lanes (e.g., 0.5 = lanes 0 and 1)
+        inChargeWidth = playerLane === Math.floor(chargeLane) || playerLane === Math.ceil(chargeLane);
+    } else {
+        inChargeWidth = Math.abs(playerLane - chargeLane) <= 1;
+    }
 
     const dz = Math.abs(obj.position[2] - playerPos.z);
 
@@ -110,7 +121,7 @@ export function checkDamageCollision(
     if (isHit) {
         if (isFever && obj.type !== ObjectType.BOSS_AMMO) {
             // Cheese Fever: award cheese pieces based on enemy type
-            let cheeseReward = CHEESE_FEVER_REWARD.TRAP;
+            let cheeseReward: number = CHEESE_FEVER_REWARD.TRAP;
             if (obj.type === ObjectType.SNAKE) {
                 cheeseReward = CHEESE_FEVER_REWARD.SNAKE;
             } else if (obj.type === ObjectType.CAT) {
@@ -245,9 +256,20 @@ export function processPlayerCollisions(
             }
         }
     } else {
-        // Projectile bounds check - disappears beyond max Z (different for firewall vs normal)
-        const maxZ = (obj as any).isFirewall ? HITBOX.FIREWALL_MAX_Z : HITBOX.PROJECTILE_MAX_Z;
-        if (obj.position[2] < maxZ) keep = false;
+        // Projectile bounds check - start fading when reaching max Z (only if no hit)
+        const projObj = obj as any;
+        const maxZ = projObj.isFirewall ? HITBOX.FIREWALL_MAX_Z : HITBOX.PROJECTILE_MAX_Z;
+
+        if (obj.position[2] < maxZ && !projObj.isFading && !projObj.hasHit) {
+            // Start fading animation - show $ symbol for 0.3 sec (only for missed shots)
+            projObj.isFading = true;
+            projObj.fadeTimer = 0.3;
+        }
+
+        // Remove when fade timer expires OR projectile hit something
+        if ((projObj.isFading && projObj.fadeTimer <= 0) || projObj.hasHit) {
+            keep = false;
+        }
     }
 
     // Cleanup objects behind player
@@ -282,14 +304,17 @@ export function processProjectileCollisions(
         if (!proj.active) continue;
 
         // Get potential targets - use spatial grid if available, otherwise full list
+        // Use prevZ (middle of sweep) for spatial lookup to catch targets in sweep path
+        const projPrevZ = (proj as any).prevZ ?? proj.position[2];
+        const lookupZ = (proj.position[2] + projPrevZ) / 2; // Middle of sweep range
         const potentialTargets = spatialGrid
-            ? spatialGrid.getProjectileTargets(proj.position[0], proj.position[2])
+            ? spatialGrid.getProjectileTargets(proj.position[0], lookupZ)
             : keptObjects;
 
         for (const target of potentialTargets) {
             if (!target.active) continue;
-            // Skip boss if already dying
-            if (target.type === ObjectType.BOSS && target.isDying) continue;
+            // Skip boss if already dying or still entering (invulnerable during approach)
+            if (target.type === ObjectType.BOSS && (target.isDying || target.isEntering)) continue;
 
             const isTarget = target.type === ObjectType.MOUSETRAP ||
                              target.type === ObjectType.SNAKE ||
@@ -306,22 +331,52 @@ export function processProjectileCollisions(
 
             // Boss spans multiple lanes, others are single lane
             if (target.type === ObjectType.BOSS) {
-                const bossLane = Math.round(target.position[0] / LANE_WIDTH);
+                // chargeLane = CENTER of attack zone (consistent across all widths)
+                // Width 1: integer lane, zone = [chargeLane]
+                // Width 2: half lane (0.5, 1.5...), zone = [floor, ceil]
+                // Width 3: integer lane, zone = [chargeLane-1, chargeLane, chargeLane+1]
+                const chargeLane = target.chargeLane ?? 0;
                 const chargeWidth = target.chargeWidth || 1;
-                const halfWidth = Math.floor(chargeWidth / 2);
-                const laneDiff = Math.abs(projLane - bossLane);
-                if (laneDiff > halfWidth) continue;
+                let inBossZone = false;
+                if (chargeWidth === 1) {
+                    inBossZone = projLane === chargeLane;
+                } else if (chargeWidth === 2) {
+                    // chargeLane is between two lanes (e.g., 0.5 = lanes 0 and 1)
+                    inBossZone = projLane === Math.floor(chargeLane) || projLane === Math.ceil(chargeLane);
+                } else {
+                    inBossZone = Math.abs(projLane - chargeLane) <= 1;
+                }
+                if (!inBossZone) continue;
             } else {
                 // Must be in same lane
                 if (projLane !== targetLane) continue;
             }
 
-            const dz = Math.abs(proj.position[2] - target.position[2]);
+            // Sweep collision: check if projectile path crossed through target
+            // This prevents tunneling when projectile moves faster than hitbox per frame
+            const projZ = proj.position[2];
+            const projPrevZ2 = (proj as any).prevZ ?? projZ; // Use current if no previous
+            const targetZ = target.position[2];
             const hitboxZ = target.type === ObjectType.BOSS ? HITBOX.BOSS_Z : HITBOX.DEFAULT_Z;
 
-            if (dz >= hitboxZ) continue;
+            // Check if target Z is within the swept path (prevZ to currentZ) + hitbox
+            // Projectiles move in -Z direction, so prevZ > projZ
+            const sweepMinZ = projZ - hitboxZ;
+            const sweepMaxZ = projPrevZ2 + hitboxZ;
 
-            // Hit detected - both normal projectile and firewall part disappear on hit
+            // Target is hit if its Z is within the sweep range
+            const targetInSweep = targetZ >= sweepMinZ && targetZ <= sweepMaxZ;
+            if (!targetInSweep) continue;
+
+            // Height check only for Eagle (owl) - projectile at 1.75m can't reach owl at 5m altitude
+            // Owl at DIVE_HEIGHT (1.5m) is hittable, but at HIGH_HEIGHT (5m) is not
+            if (target.type === ObjectType.EAGLE) {
+                const projectileReach = 1.75; // Max height projectile can hit
+                if (target.position[1] > projectileReach + 0.5) continue; // +0.5 tolerance
+            }
+
+            // Hit detected - mark as hit, deactivate projectile
+            (proj as any).hasHit = true;
             proj.active = false;
 
             // During Cheese Fever, all enemies (except Boss) have HP=1 (instant kill)
@@ -342,37 +397,42 @@ export function processProjectileCollisions(
             if (target.health <= 0) {
                 audio.playExplosion();
 
-                // Use distinct colors and REDUCED particle amounts for performance
-                let killColor = '#ff0000';
-                let particleAmount = 15; // Reduced base amount
-                let particleIntensity = 1.0;
+                // New kill effect system: $ signs + blood particles
+                // Trap/Syringe: 1$ no blood | Snake: 2$ + 5 blood | Cat: 3$ + 5 blood | Eagle: 5$ + 5 blood
+                let moneyCount = 0;
+                let bloodAmount = 0;
+                const bloodColor = '#DC143C'; // Scarlet
 
                 if (target.type === ObjectType.MOUSETRAP) {
-                    killColor = '#CD853F'; // Brown/wood
-                    particleAmount = 12;
-                    particleIntensity = 0.8;
+                    moneyCount = 1;
+                    bloodAmount = 0;
                 } else if (target.type === ObjectType.SNAKE) {
-                    killColor = '#DC143C'; // Scarlet (алый)
-                    particleAmount = 15;
-                    particleIntensity = 1.0;
+                    moneyCount = 2;
+                    bloodAmount = 5;
                 } else if (target.type === ObjectType.CAT) {
-                    killColor = '#DC143C'; // Scarlet (алый)
-                    particleAmount = 18;
-                    particleIntensity = 1.1;
+                    moneyCount = 3;
+                    bloodAmount = 5;
                 } else if (target.type === ObjectType.EAGLE) {
-                    killColor = '#DC143C'; // Scarlet (алый)
-                    particleAmount = 16;
-                    particleIntensity = 1.0;
+                    moneyCount = 5;
+                    bloodAmount = 5;
                 } else if (target.type === ObjectType.BOSS) {
-                    killColor = '#DC143C'; // Scarlet (алый)
-                    particleAmount = 30; // Boss gets more particles
-                    particleIntensity = 1.3;
+                    // Boss keeps original particle system + money
+                    moneyCount = 20;
+                    bloodAmount = 30;
                 } else if (target.type === ObjectType.BOSS_AMMO) {
-                    killColor = '#39FF14'; // Neon green (syringe fluid)
-                    particleAmount = 10;
-                    particleIntensity = 0.6;
+                    moneyCount = 1;
+                    bloodAmount = 0;
                 }
-                callbacks.onParticleBurst(target.position, killColor, particleAmount, particleIntensity);
+
+                // Spawn money effects
+                if (moneyCount > 0) {
+                    callbacks.onSpawnMoneyEffect(target.position, moneyCount);
+                }
+
+                // Spawn blood particles (only for living enemies)
+                if (bloodAmount > 0) {
+                    callbacks.onParticleBurst(target.position, bloodColor, bloodAmount, 1.0);
+                }
 
                 if (target.type === ObjectType.BOSS) {
                     callbacks.onDefeatBoss();

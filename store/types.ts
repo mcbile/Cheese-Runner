@@ -9,14 +9,40 @@
 import { GameStatus, Difficulty, LevelStats, PowerUpType } from '../types';
 
 /**
- * Core game state management slice
- * Handles game flow, scoring, lives, and audio settings
+ * Game flow state slice
+ * Handles game status, difficulty, and audio settings
  */
-export interface GameStateSlice {
+export interface GameFlowSlice {
     /** Current game status (MENU, PLAYING, PAUSED, etc.) */
     status: GameStatus;
     /** Previous status for returning from shop/inventory */
     lastGameStatus: GameStatus;
+    /** Selected difficulty mode */
+    difficulty: Difficulty;
+    /** Audio mute state */
+    isMuted: boolean;
+
+    /** Set game status directly */
+    setStatus: (status: GameStatus) => void;
+    /** Change difficulty setting */
+    setDifficulty: (diff: Difficulty) => void;
+    /** Toggle audio mute */
+    toggleMute: () => void;
+    /** Pause the game */
+    pauseGame: () => void;
+    /** Resume from pause */
+    resumeGame: () => void;
+    /** Return to main menu */
+    quitToMenu: () => void;
+    /** Return to menu from victory (keeps score, inventory, balance, chasingSnakes, maxLives) */
+    quitToMenuFromVictory: () => void;
+}
+
+/**
+ * Game progress state slice
+ * Handles scoring, lives, speed, and level progression values
+ */
+export interface GameProgressSlice {
     /** Player's current score (points) */
     score: number;
     /** Current number of lives */
@@ -33,31 +59,13 @@ export interface GameStateSlice {
     gemsCollected: number;
     /** Distance traveled in current run */
     distance: number;
-    /** Selected difficulty mode */
-    difficulty: Difficulty;
-    /** Audio mute state */
-    isMuted: boolean;
 
-    /** Set game status directly */
-    setStatus: (status: GameStatus) => void;
-    /** Change difficulty setting */
-    setDifficulty: (diff: Difficulty) => void;
     /** Add points to score */
     addScore: (amount: number) => void;
     /** Update distance traveled */
     setDistance: (dist: number) => void;
     /** Handle player damage (reduces lives or triggers game over) */
     takeDamage: () => void;
-    /** Toggle audio mute */
-    toggleMute: () => void;
-    /** Pause the game */
-    pauseGame: () => void;
-    /** Resume from pause */
-    resumeGame: () => void;
-    /** Return to main menu */
-    quitToMenu: () => void;
-    /** Return to menu from victory (keeps score, inventory, balance, chasingSnakes, maxLives) */
-    quitToMenuFromVictory: () => void;
     /** Set game speed directly */
     setSpeed: (speed: number) => void;
 }
@@ -152,8 +160,14 @@ export interface PowerUpSlice {
     isSlowMotionActive: boolean;
     /** Timestamp when slow motion ends */
     slowMotionEndTime: number;
-    /** Chasing snakes perk purchased (snakes spawn more frequently) */
+    /** Enemy Rush active (spawns 1 snake, 1 cat, 1 owl then deactivates) */
     chasingSnakesActive: boolean;
+    /** Enemy Rush progress: tracks which enemies have been spawned (snake, cat, owl) */
+    enemyRushProgress: { snake: boolean; cat: boolean; owl: boolean };
+    /** Deactivate Enemy Rush after all enemies spawned */
+    deactivateEnemyRush: () => void;
+    /** Mark enemy as spawned in Enemy Rush */
+    markEnemyRushSpawned: (enemy: 'snake' | 'cat' | 'owl') => void;
 
     /** Collect and activate a power-up pickup */
     collectPowerUp: (type: PowerUpType) => void;
@@ -180,6 +194,12 @@ export interface BossSlice {
     bossMaxHealth: number;
     /** Unique ID for current boss instance */
     bossSpawnId: number;
+    /** Boss charge phase for attack warning (0=idle, 1=retreat/warning, 2=charge, 3=return, 4=hold) */
+    bossChargePhase: number;
+    /** Target lane for boss charge attack */
+    bossChargeLane: number;
+    /** Width of charge attack in lanes */
+    bossChargeWidth: number;
 
     /** Activate boss with specified max health */
     setBossActive: (active: boolean, maxHp: number) => void;
@@ -189,6 +209,8 @@ export interface BossSlice {
     defeatBoss: () => void;
     /** Signal death animation complete */
     completeBossDeath: () => void;
+    /** Update boss charge attack state for lane warning display */
+    updateBossChargeState: (phase: number, lane: number, width: number) => void;
 }
 
 /**
@@ -264,6 +286,8 @@ export interface DebugSlice {
     debugEnemySpawnId: number;
     /** Force portal spawn (sets bossDeathComplete) */
     debugSpawnPortal: () => void;
+    /** Collect all letters except O (indices 0-5) */
+    debugCollectLetters: () => void;
     /** Set game speed directly (0.1 - 999 m/s) */
     debugSetSpeed: (speed: number) => void;
     /** Start game directly from dev console with current settings */
@@ -276,7 +300,8 @@ export interface DebugSlice {
  * Combined game store type
  * Intersection of all state slices for complete store access
  */
-export type GameStore = GameStateSlice &
+export type GameStore = GameFlowSlice &
+    GameProgressSlice &
     PlayerStateSlice &
     EconomySlice &
     InventorySlice &

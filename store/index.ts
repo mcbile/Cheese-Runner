@@ -8,7 +8,8 @@
 import { create } from 'zustand';
 import { GameStore } from './types';
 import {
-    createGameStateSlice,
+    createGameFlowSlice,
+    createGameProgressSlice,
     createPlayerSlice,
     createEconomySlice,
     createInventorySlice,
@@ -19,7 +20,8 @@ import {
 } from './slices';
 
 export const useStore = create<GameStore>()((...args) => ({
-    ...createGameStateSlice(...args),
+    ...createGameFlowSlice(...args),
+    ...createGameProgressSlice(...args),
     ...createPlayerSlice(...args),
     ...createEconomySlice(...args),
     ...createInventorySlice(...args),

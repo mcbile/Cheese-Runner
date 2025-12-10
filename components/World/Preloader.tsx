@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { ChevronLeft, Play, AlertTriangle } from 'lucide-react';
 import { useStore } from '../../store';
 import { getLaneCountForLevel } from '../../store/utils';
+import { getLevelStartSpeed, Difficulty } from '../../types';
 
 // Import all geometries to ensure they're compiled
 import {
@@ -150,11 +151,14 @@ export const Preloader: React.FC<PreloaderProps> = ({ onLoaded }) => {
         // Compile geometries
         const compileGeometries = () => {
             const dummyMaterial = new THREE.MeshBasicMaterial();
+            const dummyCamera = new THREE.PerspectiveCamera();
 
-            ALL_GEOMETRIES.forEach((geometry, index) => {
+            ALL_GEOMETRIES.forEach((geometry) => {
                 // Create a temporary mesh to force GPU compilation
+                const scene = new THREE.Scene();
                 const mesh = new THREE.Mesh(geometry, dummyMaterial);
-                gl.compile(mesh, new THREE.Scene().add(mesh));
+                scene.add(mesh);
+                gl.compile(scene, dummyCamera);
                 loaded++;
                 setProgress(Math.round((loaded / total) * 100));
             });
@@ -165,12 +169,13 @@ export const Preloader: React.FC<PreloaderProps> = ({ onLoaded }) => {
         // Compile materials
         const compileMaterials = () => {
             const dummyGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const dummyCamera = new THREE.PerspectiveCamera();
             const scene = new THREE.Scene();
 
             PRELOAD_MATERIALS.forEach((material) => {
                 const mesh = new THREE.Mesh(dummyGeometry, material);
                 scene.add(mesh);
-                gl.compile(mesh, scene);
+                gl.compile(scene, dummyCamera);
                 loaded++;
                 setProgress(Math.round((loaded / total) * 100));
                 scene.remove(mesh);
@@ -264,11 +269,11 @@ export const Level1PreloadScreen: React.FC<{ visible: boolean; ready: boolean; c
                                     <div className="text-xs text-gray-300">Jump</div>
                                 </div>
                             </div>
-                            <div className="bg-white/5 rounded-lg border border-amber-500/40 p-2 flex items-center gap-2">
-                                <span className="text-3xl">💼</span>
+                            <div className="bg-white/5 rounded-lg border border-yellow-500/40 p-2 flex items-center gap-2">
+                                <span className="text-3xl">⚙️</span>
                                 <div>
-                                    <span className="text-sm font-black text-amber-400">BAG BTN</span>
-                                    <div className="text-xs text-gray-300">Inventory</div>
+                                    <span className="text-sm font-black text-yellow-400">SETTINGS</span>
+                                    <div className="text-xs text-gray-300">Bag, Sound, Camera</div>
                                 </div>
                             </div>
                         </div>
@@ -285,19 +290,19 @@ export const Level1PreloadScreen: React.FC<{ visible: boolean; ready: boolean; c
                             </div>
                             <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
                                 <span className="text-lg font-black text-cyan-400">SPACE</span>
-                                <div className="text-sm font-bold text-white">Shoot</div>
-                            </div>
-                            <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
-                                <span className="text-lg font-black text-cyan-400">2×↓</span>
-                                <div className="text-sm font-bold text-white">💼 Bag</div>
+                                <div className="text-sm font-bold text-white">🎯 Shoot</div>
                             </div>
                             <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
                                 <span className="text-lg font-black text-cyan-400">ESC</span>
-                                <div className="text-sm font-bold text-white">⏸️ Pause</div>
+                                <div className="text-sm font-bold text-white">⚙️ Settings</div>
                             </div>
                             <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
                                 <span className="text-lg font-black text-cyan-400">M</span>
                                 <div className="text-sm font-bold text-white">🔇 Mute</div>
+                            </div>
+                            <div className="bg-gradient-to-r from-cyan-900/50 to-blue-800/40 rounded-lg p-2 border-2 border-cyan-500/60 text-center">
+                                <span className="text-lg font-black text-cyan-400">V</span>
+                                <div className="text-sm font-bold text-white">🐭 View</div>
                             </div>
                         </div>
                     </div>
@@ -377,13 +382,13 @@ const PAIRED_TIPS = [
             { icon: '🌪', title: 'SPEED', text: '+50% speed • 5 sec', color: 'text-amber-400' },
         ]
     },
-    // POWER-UPS - Firewall + Heart
+    // POWER-UPS - Firewall + Heal
     {
         section: 'POWER-UPS',
         sectionColor: 'text-purple-400',
         items: [
             { icon: '🔥', title: 'FIREWALL', text: '2 projectiles • 10 sec', color: 'text-orange-400' },
-            { icon: '💊', title: 'HEART', text: '+1 Life • Only at 1 life', color: 'text-green-400' },
+            { icon: '💊', title: 'HEAL', text: 'Restore 1 life • Only at 1 HP', color: 'text-green-400' },
         ]
     },
     // SHOP - Time Warp + Enemy Rush (pts)
@@ -395,12 +400,12 @@ const PAIRED_TIPS = [
             { icon: '⚡', title: 'ENEMY RUSH', text: '🐍😾🦉 spawn! • 3000 pts', color: 'text-purple-400' },
         ]
     },
-    // SHOP - Extra Heart + Cheese Magic (BET)
+    // SHOP - Extra Life + Cheese Magic (BET)
     {
         section: 'SHOP',
         sectionColor: 'text-yellow-400',
         items: [
-            { icon: '💖', title: 'EXTRA HEART', text: 'Max +1 • 10x BET', color: 'text-pink-400' },
+            { icon: '❤️', title: 'EXTRA LIFE', text: '+1 Max Life • 10x BET', color: 'text-red-500' },
             { icon: '🪄', title: 'CHEESE MAGIC', text: 'Enemies = 🧀 • 20x BET', color: 'text-orange-400' },
         ]
     },
@@ -452,7 +457,12 @@ const ExitConfirmModal: React.FC<{ onConfirm: () => void; onCancel: () => void }
 export const LevelPreloadScreen: React.FC<{ level: number; countdown: number; visible: boolean; onStart: () => void }> = ({ level, countdown, visible, onStart }) => {
     const [tipIndex, setTipIndex] = React.useState(0);
     const [showExitConfirm, setShowExitConfirm] = React.useState(false);
-    const { restartGame, lives, maxLives } = useStore();
+    const { restartGame, lives, maxLives, difficulty } = useStore();
+
+    // Calculate speed increase percentage relative to level 1
+    const level1Speed = getLevelStartSpeed(1, difficulty);
+    const currentLevelSpeed = getLevelStartSpeed(level, difficulty);
+    const speedIncreasePercent = Math.round(((currentLevelSpeed - level1Speed) / level1Speed) * 100);
 
     // Cycle through paired tips every 2.5 seconds
     React.useEffect(() => {
@@ -530,7 +540,7 @@ export const LevelPreloadScreen: React.FC<{ level: number; countdown: number; vi
                                     <div className="text-xs text-gray-400 uppercase">Lanes</div>
                                 </div>
                                 <div>
-                                    <div className="text-xl font-black text-yellow-400">+30%</div>
+                                    <div className="text-xl font-black text-yellow-400">{speedIncreasePercent > 0 ? `+${speedIncreasePercent}%` : '—'}</div>
                                     <div className="text-xs text-gray-400 uppercase">Speed</div>
                                 </div>
                                 <div>

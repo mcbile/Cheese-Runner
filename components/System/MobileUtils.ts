@@ -2,6 +2,13 @@
  * Mobile utilities for haptic feedback, fullscreen, and orientation
  */
 
+// Extend ScreenOrientation type for lock() method (non-standard but widely supported)
+declare global {
+    interface ScreenOrientation {
+        lock?(orientation: 'portrait' | 'landscape' | 'portrait-primary' | 'portrait-secondary' | 'landscape-primary' | 'landscape-secondary'): Promise<void>;
+    }
+}
+
 // Haptic feedback patterns (in milliseconds)
 export const HapticPatterns = {
     // Light tap for UI interactions
@@ -132,10 +139,10 @@ class MobileUtilsManager {
     /**
      * Trigger haptic feedback with a pattern
      */
-    vibrate(pattern: number | number[]): void {
+    vibrate(pattern: number | readonly number[]): void {
         if (!this.hapticEnabled) return;
         try {
-            navigator.vibrate(pattern);
+            navigator.vibrate(pattern as number | number[]);
         } catch (e) {
             // Silently fail if vibration not supported
         }

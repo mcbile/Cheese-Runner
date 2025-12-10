@@ -6,12 +6,12 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GameObject, GameStatus, PowerUpType } from '../../../types';
+import { PowerUpObject, GameStatus, PowerUpType } from '../../../types';
 import { useStore } from '../../../store';
-import { LightningSprite, HeartSprite, HourglassSprite, FireSprite } from '../sprites';
+import { LightningSprite, HeartSprite, HourglassSprite, FireSprite } from './sprites';
 
 interface PowerupEntityProps {
-    data: GameObject;
+    data: PowerUpObject;
 }
 
 export const PowerupEntity: React.FC<PowerupEntityProps> = ({ data }) => {

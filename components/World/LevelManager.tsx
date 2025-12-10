@@ -10,7 +10,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../store';
-import { GameObject, ObjectType, LANE_WIDTH, SPAWN_DISTANCE, REMOVE_DISTANCE, GameStatus, PowerUpType, PlayerShootEvent, GameEvents, getLaneBounds } from '../../types';
+import { GameObject, ObjectType, LANE_WIDTH, SPAWN_DISTANCE, REMOVE_DISTANCE, GameStatus, PowerUpType, PlayerShootEvent, GameEvents, getLaneBounds, Difficulty, MoneyEffectObject } from '../../types';
 import { mobileUtils } from '../System/MobileUtils';
 
 // Import modular systems
@@ -49,6 +49,48 @@ function emitParticleBurst(position: [number, number, number], color: string, am
     window.dispatchEvent(new CustomEvent(GameEvents.PARTICLE_BURST, { detail: { position, color, amount, intensity } }));
 }
 
+// Counter for unique money effect IDs
+let moneyEffectIdCounter = 0;
+
+/**
+ * Create money effect objects at position with count
+ * Spreads them horizontally with slight randomness
+ */
+function createMoneyEffects(position: [number, number, number], count: number): MoneyEffectObject[] {
+    const effects: MoneyEffectObject[] = [];
+    const spread = 0.4; // Horizontal spread between $ signs
+    const startX = position[0] - (spread * (count - 1)) / 2;
+
+    for (let i = 0; i < count; i++) {
+        const offsetX = startX + i * spread + (Math.random() - 0.5) * 0.2;
+        const offsetZ = position[2] + (Math.random() - 0.5) * 0.3;
+
+        effects.push({
+            id: `money_${moneyEffectIdCounter++}`,
+            type: ObjectType.MONEY_EFFECT,
+            position: [offsetX, position[1] + 0.5, offsetZ],
+            active: true,
+            velocityY: 3 + Math.random() * 1.5, // Upward speed with variance
+            lifetime: 0.8,
+            startTime: Date.now()
+        });
+    }
+
+    return effects;
+}
+
+/**
+ * Convert Difficulty enum to numeric index for MovementSystem
+ */
+function difficultyToNumber(diff: Difficulty): number {
+    switch (diff) {
+        case Difficulty.EASY: return 0;
+        case Difficulty.MEDIUM: return 1;
+        case Difficulty.HARD: return 2;
+        default: return 1;
+    }
+}
+
 /**
  * Main LevelManager component
  */
@@ -57,10 +99,11 @@ export const LevelManager: React.FC = () => {
     const {
         status, speed, collectGem, collectLetter, collectedLetters, laneCount,
         setDistance, level, addScore, applyReward, betAmount, recordKill,
-        wordCompleted, triggerLevelComplete, chasingSnakesActive, collectPowerUp,
+        wordCompleted, triggerLevelComplete, chasingSnakesActive, enemyRushProgress,
+        markEnemyRushSpawned, collectPowerUp,
         bossDefeated, bossDying, bossDeathComplete, setBossActive, updateBossHealth,
         defeatBoss, completeBossDeath, bossSpawnId, lives, debugEnemySpawnId, isDevMode,
-        playerLane, playerY, setSpeed
+        playerLane, playerY, setSpeed, updateBossChargeState, difficulty
     } = useStore();
 
     // Game objects state
@@ -107,7 +150,7 @@ export const LevelManager: React.FC = () => {
             const cat = createCat(catLane * LANE_WIDTH, catLane, spawnZ - 15, true);
             objectsRef.current.push(cat);
 
-            // 🦉 Spawn owl on right lane
+            // Spawn owl on right lane
             const owlLane = maxLane;
             const owl = createEagle(owlLane * LANE_WIDTH, 5.0, spawnZ - 30);
             objectsRef.current.push(owl);
@@ -157,10 +200,14 @@ export const LevelManager: React.FC = () => {
             if (status !== GameStatus.PLAYING) return;
             const { position } = e.detail;
             const isFirewall = useStore.getState().isFirewallActive;
+            const isBossFight = useStore.getState().isBossActive;
 
             // Snap projectile to exact lane center for reliable collision detection
             const currentLane = Math.round(position[0] / LANE_WIDTH);
             const snappedX = currentLane * LANE_WIDTH;
+
+            // Enable arc trajectory during boss fight (projectiles curve up towards boss)
+            const arcEnabled = isBossFight;
 
             if (isFirewall) {
                 // FIREWALL: two separate fire wall parts (main lane + adjacent lane)
@@ -170,13 +217,13 @@ export const LevelManager: React.FC = () => {
                 if (adjacentLane < minLane) adjacentLane = currentLane + 1;
 
                 // First part of firewall (current lane) - uses Object Pool
-                objectsRef.current.push(createProjectile(snappedX, 0.5, position[2], true));
+                objectsRef.current.push(createProjectile(snappedX, 0.5, position[2], true, arcEnabled));
 
                 // Second part of firewall (adjacent lane) - uses Object Pool
-                objectsRef.current.push(createProjectile(adjacentLane * LANE_WIDTH, 0.5, position[2], true));
+                objectsRef.current.push(createProjectile(adjacentLane * LANE_WIDTH, 0.5, position[2], true, arcEnabled));
             } else {
                 // Normal projectile - uses Object Pool (snapped to lane center)
-                objectsRef.current.push(createProjectile(snappedX, position[1], position[2], false));
+                objectsRef.current.push(createProjectile(snappedX, position[1], position[2], false, arcEnabled));
             }
             setRenderTrigger(t => t + 1);
         };
@@ -260,7 +307,8 @@ export const LevelManager: React.FC = () => {
             laneCount,
             playerPos,
             level,
-            isBossFight
+            isBossFight,
+            difficultyToNumber(difficulty)
         );
 
         // Collision callbacks
@@ -275,7 +323,12 @@ export const LevelManager: React.FC = () => {
             onRecordKill: (type, earnings) => recordKill(type, earnings),
             onDefeatBoss: () => { mobileUtils.success(); defeatBoss(); },
             onUpdateBossHealth: (health) => { mobileUtils.bossHit(); updateBossHealth(health); },
-            onParticleBurst: (position, color, amount, intensity) => emitParticleBurst(position, color, amount, intensity)
+            onParticleBurst: (position, color, amount, intensity) => emitParticleBurst(position, color, amount, intensity),
+            onSpawnMoneyEffect: (position, count) => {
+                const effects = createMoneyEffects(position, count);
+                keptObjects.push(...effects);
+                hasChanges = true;
+            }
         };
 
         // Process each object
@@ -322,11 +375,48 @@ export const LevelManager: React.FC = () => {
                 const bossResult = processBossMovement(obj, movementCtx, completeBossDeath);
                 if (bossResult.hasChanges) hasChanges = true;
                 newSpawns.push(...bossResult.newSpawns);
+                // Sync boss charge state to store for lane warning display
+                updateBossChargeState(
+                    obj.chargePhase || 0,
+                    obj.chargeLane || 0,
+                    obj.chargeWidth || 1
+                );
             }
 
             // Apply movement (except for boss which handles its own position)
             if (obj.type !== ObjectType.BOSS) {
+                // Store previous Z for projectile sweep collision before updating position
+                if (obj.type === ObjectType.PROJECTILE) {
+                    (obj as any).prevZ = obj.position[2];
+                }
                 obj.position[2] += moveAmount;
+            }
+
+            // Projectile fading animation when reaching max distance
+            if (obj.type === ObjectType.PROJECTILE) {
+                const projObj = obj as any;
+                if (projObj.isFading) {
+                    // Countdown fade timer, stop movement
+                    projObj.fadeTimer = (projObj.fadeTimer || 0) - safeDelta;
+                    // Stop forward movement when fading
+                    obj.position[2] -= moveAmount; // Cancel the movement we just applied
+                }
+            }
+
+            // Money effect animation - float upward and expire
+            if (obj.type === ObjectType.MONEY_EFFECT) {
+                const moneyObj = obj as MoneyEffectObject;
+                // Move upward
+                moneyObj.position[1] += moneyObj.velocityY * safeDelta;
+                // Cancel Z movement (money stays in place horizontally)
+                obj.position[2] -= moveAmount;
+                // Check lifetime
+                const elapsed = (Date.now() - moneyObj.startTime) / 1000;
+                if (elapsed >= moneyObj.lifetime) {
+                    obj.active = false;
+                    hasChanges = true;
+                    continue; // Skip to next object
+                }
             }
 
             // Process collisions
@@ -372,12 +462,15 @@ export const LevelManager: React.FC = () => {
         const spawningState: SpawningState = {
             level,
             laneCount,
+            speed,
             lives,
             collectedLetters,
             wordCompleted,
             bossDefeated,
             bossDeathComplete,
             chasingSnakesActive,
+            enemyRushProgress,
+            markEnemyRushSpawned,
             bossSpawned: bossSpawnedRef.current,
             portalSpawned: portalSpawnedRef.current,
             snakesCrossedZero: spawningRefs.current.snakesCrossedZero,
@@ -391,20 +484,36 @@ export const LevelManager: React.FC = () => {
             onSetBossActive: (active, health) => setBossActive(active, health)
         };
 
-        // Boss spawn - clear zone and spawn boss
+        // Boss spawn - wait for road to clear, then spawn boss
         // IMPORTANT: Set flag FIRST to prevent race condition on multiple frames
         if (wordCompleted && !bossSpawnedRef.current && !bossDefeated) {
-            // Immediately set flag to prevent duplicate spawns
-            bossSpawnedRef.current = true;
+            // Check if road is clear of enemies, traps, cheese, letters
+            // Only allow powerups and projectiles to remain
+            const blockingObjects = keptObjects.filter(o => {
+                const isBlockingType =
+                    o.type === ObjectType.MOUSETRAP ||
+                    o.type === ObjectType.SNAKE ||
+                    o.type === ObjectType.CAT ||
+                    o.type === ObjectType.EAGLE ||
+                    o.type === ObjectType.CHEESE ||
+                    o.type === ObjectType.LETTER;
+                // Object blocks boss spawn if it's ahead of player (z < 0)
+                return isBlockingType && o.position[2] < 0;
+            });
 
-            const clearZoneObjects = keptObjects.filter(o => o.position[2] > -80);
-            objectsRef.current = clearZoneObjects;
+            const isRoadClear = blockingObjects.length === 0;
 
-            const bossHP = 20 + ((level - 1) * 10);
-            keptObjects.push(createBoss(bossHP));
+            if (isRoadClear) {
+                // Immediately set flag to prevent duplicate spawns
+                bossSpawnedRef.current = true;
 
-            setBossActive(true, bossHP);
-            hasChanges = true;
+                const bossHP = 20 + ((level - 1) * 10);
+                keptObjects.push(createBoss(bossHP, speed));
+
+                setBossActive(true, bossHP);
+                hasChanges = true;
+            }
+            // If road not clear, boss will spawn on next frame when objects pass z=0
         }
 
         // Portal spawn - after boss death animation

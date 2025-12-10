@@ -3,22 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * Guardrail - Road barrier/guardrail using instanced mesh
+ * Optimized: segment count based on speed with 10% margin
  */
 
 import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../../store';
-import { LANE_WIDTH, GameStatus } from '../../../types';
-import {
-    SCENERY_LIMIT_Z,
-    SCENERY_RESET_Z,
-    LOOP_LENGTH
-} from './constants';
+import { LANE_WIDTH, GameStatus, RUN_SPEED_BASE } from '../../../types';
+import { SCENERY_LIMIT_Z } from './constants';
 
 const SEGMENT_LENGTH = 8;
 const GUARDRAIL_HEIGHT = 0.8;
 const GUARDRAIL_OFFSET = 3; // Distance from road edge
+
+// Speed-based loop length calculation
+// At base speed (18), we need ~120 units visible range
+// Higher speeds need longer range to avoid pop-in
+const BASE_VISIBLE_RANGE = 120;
+const SPEED_RANGE_FACTOR = 3; // Additional range per speed unit above base
+const MARGIN = 1.1; // 10% safety margin
+
+function getLoopLength(speed: number): number {
+    const speedDelta = Math.max(0, speed - RUN_SPEED_BASE);
+    const visibleRange = BASE_VISIBLE_RANGE + speedDelta * SPEED_RANGE_FACTOR;
+    return Math.ceil(visibleRange * MARGIN);
+}
 
 export const Guardrail: React.FC = () => {
     const { speed, status, laneCount } = useStore();
@@ -32,8 +42,12 @@ export const Guardrail: React.FC = () => {
     const roadHalfWidth = (laneCount * LANE_WIDTH) / 2;
     const guardrailX = roadHalfWidth + GUARDRAIL_OFFSET;
 
-    // Calculate segment count
-    const segmentCount = Math.ceil(LOOP_LENGTH / SEGMENT_LENGTH) + 2;
+    // Dynamic loop length based on current speed (with 10% margin)
+    const loopLength = useMemo(() => getLoopLength(speed), [speed]);
+    const resetZ = SCENERY_LIMIT_Z - loopLength;
+
+    // Calculate segment count based on dynamic loop length
+    const segmentCount = Math.ceil(loopLength / SEGMENT_LENGTH) + 2;
 
     // Generate initial Z positions
     const initialPositions = useMemo(() => {
@@ -104,7 +118,7 @@ export const Guardrail: React.FC = () => {
 
             // Loop back
             if (initialPositions[i] > SCENERY_LIMIT_Z) {
-                initialPositions[i] -= LOOP_LENGTH;
+                initialPositions[i] = resetZ;
             }
 
             const z = initialPositions[i];

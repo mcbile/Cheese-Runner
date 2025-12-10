@@ -1,0 +1,64 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Boss Materials - Color constants and material configurations
+ */
+
+import { COMMON_COLORS, COMMON_SETTINGS } from '../../materials/commonColors';
+
+// Body colors
+export const COLORS = {
+    // Coat
+    COAT_WHITE: COMMON_COLORS.WHITE,
+    COAT_POCKET: '#CCCCCC',
+
+    // Skin
+    SKIN: '#FFE0BD',
+    NOSE_PINK: '#FFC0CB',
+    MOUTH: '#BC6E6E',
+
+    // Hair & Features
+    HAIR_BLACK: COMMON_COLORS.BLACK,
+    GLASSES_FRAME: '#111111',
+    LENS_WHITE: COMMON_COLORS.WHITE,
+    SWIRL_BLACK: COMMON_COLORS.PUPIL,
+    MUSTACHE: COMMON_COLORS.PUPIL,
+
+    // Clothing
+    TIE_PURPLE: '#2E003E',
+    PANTS_PURPLE: '#4A148C',
+    SHOE_BLACK: '#111111',
+
+    // Syringe
+    SYRINGE_BODY: '#E8E8E8',
+    SYRINGE_FLANGE: '#E0E0E0',
+    SYRINGE_FLUID: '#39FF14',
+    SYRINGE_FLUID_EMISSIVE: '#00FF00',
+    SYRINGE_HUB: COMMON_COLORS.METAL_SILVER,
+    SYRINGE_NEEDLE: '#D4D4D4',
+    SYRINGE_PLUNGER: COMMON_COLORS.BLACK,
+
+    // Blood stains
+    BLOOD_DARK: '#8B0000',
+    BLOOD_MED: '#A52A2A',
+    BLOOD_LIGHT: '#800000',
+    BLOOD_SPLATTER: '#DC143C',
+
+    // Effects
+    HIT_FLASH: 0xFF0000,
+    SHADOW: COMMON_COLORS.SHADOW,
+} as const;
+
+// Material settings
+export const MATERIAL_SETTINGS = {
+    COAT_ROUGHNESS: 0.8,
+    SYRINGE_TRANSMISSION: 0.6,
+    SYRINGE_OPACITY: 0.5,
+    SYRINGE_ROUGHNESS: 0.05,
+    METAL_ROUGHNESS: COMMON_SETTINGS.METAL_ROUGHNESS,
+    NEEDLE_METALNESS: 1,
+    NEEDLE_ROUGHNESS: 0.1,
+    HIT_EMISSIVE_INTENSITY: 2.0,
+    FLUID_EMISSIVE_INTENSITY: 1.5,
+} as const;

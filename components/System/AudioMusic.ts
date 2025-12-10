@@ -42,10 +42,14 @@ export class AudioMusic {
     }
 
     /** Start background music */
-    start() {
+    async start(): Promise<void> {
         if (this.isPlayingMusic) return;
-        this.system.init();
+
+        await this.system.init();
         if (!this.system.ctx || !this.system.masterGain) return;
+
+        // Double-check context is running after init
+        if (this.system.ctx.state !== 'running') return;
 
         this.isPlayingMusic = true;
         this.current16thNote = 0;

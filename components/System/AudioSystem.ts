@@ -103,7 +103,7 @@ export class AudioSystem {
     }
 
     /** Initialize audio context and gain nodes */
-    init() {
+    async init(): Promise<void> {
         if (!this.ctx) {
             this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             this.masterGain = this.ctx.createGain();
@@ -115,9 +115,11 @@ export class AudioSystem {
             this.sfxGain.connect(this.masterGain);
         }
         if (this.ctx.state === 'suspended') {
-            this.ctx.resume().catch((err) => {
+            try {
+                await this.ctx.resume();
+            } catch (err) {
                 console.warn('[Audio] Failed to resume AudioContext:', err);
-            });
+            }
         }
     }
 

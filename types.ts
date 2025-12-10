@@ -41,12 +41,14 @@ export enum ObjectType {
   LETTER = 'LETTER',
   SHOP_PORTAL = 'SHOP_PORTAL',
   CAT = 'CAT',
-  /** 🦉 Owl enemy - named EAGLE in code for historical reasons */
+  /** Owl enemy - named EAGLE in code for historical reasons */
   EAGLE = 'EAGLE',
   PROJECTILE = 'PROJECTILE',
   POWERUP = 'POWERUP',
   BOSS = 'BOSS',
-  BOSS_AMMO = 'BOSS_AMMO'
+  BOSS_AMMO = 'BOSS_AMMO',
+  /** Visual effect - flying $ on enemy kill */
+  MONEY_EFFECT = 'MONEY_EFFECT'
 }
 
 // Alias for clarity - Owl is represented by EAGLE in code
@@ -69,6 +71,8 @@ interface GameObjectBase {
 // Mousetrap - static obstacle
 export interface MousetrapObject extends GameObjectBase {
   type: ObjectType.MOUSETRAP;
+  health: number;
+  lastHitTime?: number;
 }
 
 // Snake - lane-changing enemy
@@ -99,7 +103,7 @@ export interface CatObject extends GameObjectBase {
 }
 
 /**
- * 🦉 Owl - flying enemy with dive attacks
+ * Owl - flying enemy with dive attacks
  * Note: Named "Eagle" in code for historical reasons, but represents an Owl in the game
  */
 export interface EagleObject extends GameObjectBase {
@@ -110,6 +114,8 @@ export interface EagleObject extends GameObjectBase {
   eagleCircleAngle: number;
   eagleBaseZ: number;
   eagleDodgeTimer: number;
+  targetLane?: number;
+  laneChangeTimer?: number;
   lastHitTime?: number;
 }
 
@@ -139,6 +145,16 @@ export interface ShopPortalObject extends GameObjectBase {
 export interface ProjectileObject extends GameObjectBase {
   type: ObjectType.PROJECTILE;
   isFirewall?: boolean;
+  color?: string;
+  // Arc trajectory fields (for boss fight)
+  startZ?: number;      // Z position when projectile was spawned
+  arcEnabled?: boolean; // Whether arc trajectory is active
+  // Fading animation when reaching max distance (only if no hit)
+  isFading?: boolean;   // True when projectile reached max distance and showing $
+  fadeTimer?: number;   // Time remaining before removal (0.3 sec)
+  hasHit?: boolean;     // True if projectile hit any target (no $ shown)
+  // Sweep collision - previous Z position for tunneling prevention
+  prevZ?: number;       // Z position from previous frame
 }
 
 // PowerUp pickup
@@ -166,13 +182,25 @@ export interface BossObject extends GameObjectBase {
   deathPhase: number; // 0=knockback, 1=falling, 2=landed
   deathStartZ: number;
   deathLane: number;
+  deathGroanPlayed?: boolean;
   lastHitTime?: number;
+  isEntering?: boolean; // Boss is moving from spawn to normal position (invulnerable, no shooting)
 }
 
 // Boss projectile (syringe)
 export interface BossAmmoObject extends GameObjectBase {
   type: ObjectType.BOSS_AMMO;
   targetLane: number;
+  health: number;
+  lastHitTime?: number;
+}
+
+// Money effect - flying $ on enemy kill
+export interface MoneyEffectObject extends GameObjectBase {
+  type: ObjectType.MONEY_EFFECT;
+  velocityY: number;    // Upward speed
+  lifetime: number;     // Time before removal
+  startTime: number;    // Creation timestamp for fade calculation
 }
 
 // Discriminated union of all game object types
@@ -187,7 +215,8 @@ export type GameObject =
   | ProjectileObject
   | PowerUpObject
   | BossObject
-  | BossAmmoObject;
+  | BossAmmoObject
+  | MoneyEffectObject;
 
 // Type guards for runtime type checking
 export function isSnake(obj: GameObject): obj is SnakeObject {
@@ -198,7 +227,7 @@ export function isCat(obj: GameObject): obj is CatObject {
   return obj.type === ObjectType.CAT;
 }
 
-/** Check if object is an Owl (🦉) - named isEagle for historical reasons */
+/** Check if object is an Owl - named isEagle for historical reasons */
 export function isEagle(obj: GameObject): obj is EagleObject {
   return obj.type === ObjectType.EAGLE;
 }
@@ -251,8 +280,29 @@ export const LANE_WIDTH = 2.2;
 export const JUMP_HEIGHT = 2.5;
 export const JUMP_DURATION = 0.6; // seconds
 export const RUN_SPEED_BASE = 18.0; // Reduced by 20% from 22.5
-export const SPAWN_DISTANCE = 120;
+export const SPAWN_DISTANCE = 120; // Legacy - use SPAWN_DISTANCES for per-type values
 export const REMOVE_DISTANCE = 20; // Behind player
+
+// Per-object-type spawn distances (base values at RUN_SPEED_BASE)
+// Closer spawn = better performance (fewer objects in scene)
+export const SPAWN_DISTANCES = {
+    BOSS: -90,           // Boss spawns furthest
+    COLLECTIBLES: -85,   // Letters, cheese, traps, power-ups
+    ENEMY: -80,          // Snakes, Cats, Owls
+} as const;
+
+// Speed-based spawn distance scaling
+// Each 1 m/s above base speed = spawn X meters further
+export const SPAWN_SPEED_FACTOR = 1.5;
+
+// Helper function to get spawn Z based on current speed
+export type SpawnType = 'BOSS' | 'COLLECTIBLES' | 'ENEMY';
+
+export function getSpawnZ(type: SpawnType, speed: number): number {
+    const baseZ = SPAWN_DISTANCES[type];
+    const speedDelta = Math.max(0, speed - RUN_SPEED_BASE);
+    return baseZ - speedDelta * SPAWN_SPEED_FACTOR;
+}
 
 // Colors for KAASINO (7 letters) - Amber 400 (#FBBF24)
 export const GEMINI_COLORS = [
@@ -371,8 +421,18 @@ export const LETTER_INTERVAL_MULTIPLIER = 1.5;
 
 // Enemy speeds
 export const EAGLE_SPEED = 13.2; // +10% from base 12
-export const PROJECTILE_SPEED = 50;
-export const BOSS_AMMO_SPEED = 15;
+export const PROJECTILE_SPEED = 50; // Legacy fixed speed (unused - now uses road-relative)
+export const BOSS_AMMO_SPEED = 15; // Legacy fixed speed (unused - now syncs with road)
+
+// Object speed multipliers (relative to road speed)
+export const SPEED_MULTIPLIERS = {
+    LETTER: 0.75,           // Letters move at 75% of road speed
+    POWERUP: 0.85,          // Power-ups move at 85% of road speed
+    PROJECTILE: 2.50,       // Player projectiles: 250% road speed (clamped 45-65)
+    FIREWALL: 3.00,         // Firewall: 300% road speed (clamped 60-80)
+    CHEESE: 0.90,           // Cheese moves at 90% of road speed
+    MOUSETRAP: 0.90         // Mousetrap moves at 90% of road speed (default)
+} as const;
 
 // Eagle movement constants
 export const EAGLE_MOVEMENT = {
@@ -393,27 +453,29 @@ export const EAGLE_MOVEMENT = {
 
 // Cat movement constants
 export const CAT_MOVEMENT = {
-    LATERAL_SPEED_MULT: 0.12,   // Diagonal movement speed multiplier
-    JUMP_TRIGGER_Z: -10,        // Z position to start jump
+    LATERAL_SPEED_MULT: 0.10,   // Diagonal movement speed multiplier (10% of road speed)
+    JUMP_TRIGGER_Z: -7.5,       // Z position to start jump
     JUMP_HEIGHT: 2.5,           // Max jump height
     JUMP_DURATION: 0.4          // Jump duration in seconds
 } as const;
 
 // Snake movement constants
 export const SNAKE_MOVEMENT = {
-    LANE_CHANGE_INTERVAL: 1.5,  // Seconds between lane changes
+    LANE_CHANGE_INTERVAL: 1.0,  // Seconds between lane changes
     LATERAL_SPEED_MULT: 0.18,   // Lateral movement speed multiplier
     FORWARD_SPEED_MULT: 0.85    // Forward movement speed multiplier
 } as const;
 
 // Boss movement constants
 export const BOSS_MOVEMENT = {
+    SPAWN_POSITION_Z: -75,      // Z position where boss spawns (far away)
     BACK_POSITION_Z: -45,       // Z position when retreating for charge
     NORMAL_POSITION_Z: -25,     // Normal hovering Z position
+    ENTER_SPEED_MULT: 1.0,      // Speed multiplier when entering (100% road speed)
     CHARGE_SPEED_MULT: 3.0,     // Speed multiplier during charge
     RETREAT_SPEED_MULT: 1.1,    // Speed multiplier when retreating
     RETURN_SPEED_MULT: 1.35,    // Speed multiplier returning to position
-    LATERAL_SPEED_MULT: 0.25,   // Lateral movement speed multiplier
+    LATERAL_SPEED_MULT: 0.20,   // Lateral movement speed multiplier (20% of road speed)
     KNOCKBACK_TARGET_Z: -30,    // Z position during death knockback
     KNOCKBACK_DURATION: 0.8,    // Death knockback duration
     FALL_DURATION: 1.0,         // Death fall duration
@@ -421,7 +483,7 @@ export const BOSS_MOVEMENT = {
     MAX_CHARGE_INTERVAL: 20,    // Maximum seconds between charges
     HOLD_MIN_DURATION: 1.0,     // Min hold time after charge
     HOLD_MAX_DURATION: 2.0,     // Max hold time after charge
-    ATTACK_INTERVAL: 1.0,       // Seconds between ammo shots (base)
+    ATTACK_INTERVAL: 1.15,      // Seconds between ammo shots (base, +15% slower)
     // Damage stage thresholds (HP ratio)
     DAMAGE_STAGE_1_THRESHOLD: 0.67, // First stage at 33% HP lost
     DAMAGE_STAGE_2_THRESHOLD: 0.34, // Second stage at 66% HP lost
@@ -469,8 +531,8 @@ export const HITBOX = {
     // Collision detection thresholds
     PLAYER_COLLISION_Z_THRESHOLD: 2.0,  // Z-axis proximity for player collisions
     PLAYER_COLLISION_X_THRESHOLD: 0.9,  // X-axis (lane) proximity for player collisions
-    PROJECTILE_MAX_Z: -45,              // Normal projectile disappears beyond this Z
-    FIREWALL_MAX_Z: -60,                // Firewall projectile disappears beyond this Z
+    PROJECTILE_MAX_Z: -50,              // Normal projectile disappears beyond this Z
+    FIREWALL_MAX_Z: -65,                // Firewall projectile disappears beyond this Z
     PICKUP_Y_THRESHOLD: 2.5,            // Max Y distance for pickup collection
     CHEESE_FEVER_HITBOX_TOP: 4.0        // Extended hitbox during Cheese Fever
 } as const;
@@ -513,7 +575,7 @@ export const LEVEL_CONFIG = {
 
 // Touch/swipe input constants
 export const TOUCH_CONFIG = {
-    SWIPE_THRESHOLD_X: 40,      // Minimum horizontal swipe distance (px)
+    SWIPE_THRESHOLD_X: 30,      // Minimum horizontal swipe distance (px)
     SWIPE_THRESHOLD_Y: 30,      // Minimum vertical swipe distance (px)
     MAX_SWIPE_TIME: 300,        // Maximum time for a swipe gesture (ms)
     SWIPE_DOWN_THRESHOLD: 50,   // Minimum swipe down distance to close inventory (px)

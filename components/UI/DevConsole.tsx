@@ -46,7 +46,7 @@ const DevPasswordPrompt: React.FC = () => {
     };
 
     return (
-        <div className="absolute inset-0 flex items-center justify-center z-[100] bg-black/60 backdrop-blur-sm pointer-events-auto">
+        <div className="absolute inset-0 flex items-center justify-center z-[250] bg-black/60 backdrop-blur-sm pointer-events-auto">
             <div className={`relative w-full max-w-sm bg-[#0F172A] rounded-2xl shadow-[0_0_50px_rgba(33,70,139,0.5)] border-4 border-white p-6 ${shake ? 'animate-shake' : ''}`}>
                 {/* Close button */}
                 <button
@@ -105,13 +105,14 @@ const DevPasswordPrompt: React.FC = () => {
 };
 
 export const DevConsole: React.FC = () => {
-    const { isDevAuthenticated, isGodMode, debugAddBalance, debugAddScore, debugAddLife, debugSetStatus, debugSpawnBoss, debugSpawnEnemies, debugSpawnPortal, debugStartGame, debugApplyToCurrentGame, toggleDevMode, setGodMode, level, speed, status, openShop, collectPowerUp } = useStore();
+    const { isDevAuthenticated, isGodMode, debugAddBalance, debugAddScore, debugAddLife, debugSetStatus, debugSpawnBoss, debugSpawnEnemies, debugSpawnPortal, debugCollectLetters, debugStartGame, debugApplyToCurrentGame, toggleDevMode, setGodMode, level, speed, status, openShop, collectPowerUp } = useStore();
 
     const [targetLevel, setTargetLevel] = useState(level);
     const [godModePending, setGodModePending] = useState(isGodMode);
     const [forceBossPending, setForceBossPending] = useState(false);
     const [spawnEnemiesPending, setSpawnEnemiesPending] = useState(false);
     const [spawnPortalPending, setSpawnPortalPending] = useState(false);
+    const [collectLettersPending, setCollectLettersPending] = useState(false);
     const [targetSpeed, setTargetSpeed] = useState(speed || 15);
     const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -137,7 +138,7 @@ export const DevConsole: React.FC = () => {
         }
 
         // Apply special spawns (works in both cases)
-        if (forceBossPending || spawnEnemiesPending || spawnPortalPending) {
+        if (forceBossPending || spawnEnemiesPending || spawnPortalPending || collectLettersPending) {
             setTimeout(() => {
                 if (forceBossPending) {
                     debugSpawnBoss();
@@ -151,6 +152,10 @@ export const DevConsole: React.FC = () => {
                     debugSpawnPortal();
                     setSpawnPortalPending(false);
                 }
+                if (collectLettersPending) {
+                    debugCollectLetters();
+                    setCollectLettersPending(false);
+                }
             }, 100);
         }
     };
@@ -158,7 +163,7 @@ export const DevConsole: React.FC = () => {
     // Collapsed banner at bottom
     if (isCollapsed) {
         return (
-            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[200] bg-[#0F172A] border-4 border-white px-4 py-2 rounded-xl font-mono text-xs text-green-400 pointer-events-auto shadow-[0_0_50px_rgba(33,70,139,0.5)] flex items-center gap-3">
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[250] bg-[#0F172A] border-4 border-white px-4 py-2 rounded-xl font-mono text-xs text-green-400 pointer-events-auto shadow-[0_0_50px_rgba(33,70,139,0.5)] flex items-center gap-3">
                 <div className="flex items-center gap-2">
                     <CrownIcon className="w-4 h-4 text-yellow-500" />
                     <span className="font-bold text-white">Royal</span>
@@ -174,7 +179,7 @@ export const DevConsole: React.FC = () => {
 
     // Full panel - styled like MenuScreen
     return (
-        <div className="absolute inset-0 flex flex-col items-center justify-start z-[100] bg-black/20 backdrop-blur-[1px] px-1.5 pb-1.5 pt-3 sm:pb-3 md:pb-4 pointer-events-auto">
+        <div className="absolute inset-0 flex flex-col items-center justify-start z-[250] bg-black/20 backdrop-blur-[1px] px-1.5 pb-1.5 pt-3 sm:pb-3 md:pb-4 pointer-events-auto">
             <div className="relative w-full max-w-md max-h-full bg-[#0F172A] rounded-3xl shadow-[0_0_50px_rgba(33,70,139,0.5)] border-4 border-white animate-in zoom-in-95 duration-500 flex flex-col items-center py-4 px-5 shrink overflow-y-auto">
 
                 {/* Row 1: Header - Royal + collapse + close */}
@@ -207,15 +212,19 @@ export const DevConsole: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Row 4: ENEMIES, PORTAL */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="flex items-center justify-between bg-white/10 px-3 py-2 rounded-xl border border-white/20">
-                            <span className="text-purple-400 font-bold">ENEMIES</span>
-                            <button onClick={() => setSpawnEnemiesPending(!spawnEnemiesPending)} className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${spawnEnemiesPending ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{spawnEnemiesPending ? 'YES' : 'OFF'}</button>
+                    {/* Row 4: ENEMIES, PORTAL, LETTERS */}
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="flex items-center justify-between bg-white/10 px-2 py-2 rounded-xl border border-white/20">
+                            <span className="text-purple-400 font-bold text-xs">ENEMY</span>
+                            <button onClick={() => setSpawnEnemiesPending(!spawnEnemiesPending)} className={`px-2 py-1 rounded-lg font-bold text-xs transition-all ${spawnEnemiesPending ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{spawnEnemiesPending ? 'YES' : 'OFF'}</button>
                         </div>
-                        <div className="flex items-center justify-between bg-white/10 px-3 py-2 rounded-xl border border-white/20">
-                            <span className="text-yellow-400 font-bold">PORTAL</span>
-                            <button onClick={() => setSpawnPortalPending(!spawnPortalPending)} className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${spawnPortalPending ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{spawnPortalPending ? 'YES' : 'OFF'}</button>
+                        <div className="flex items-center justify-between bg-white/10 px-2 py-2 rounded-xl border border-white/20">
+                            <span className="text-yellow-400 font-bold text-xs">PORTAL</span>
+                            <button onClick={() => setSpawnPortalPending(!spawnPortalPending)} className={`px-2 py-1 rounded-lg font-bold text-xs transition-all ${spawnPortalPending ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{spawnPortalPending ? 'YES' : 'OFF'}</button>
+                        </div>
+                        <div className="flex items-center justify-between bg-white/10 px-2 py-2 rounded-xl border border-white/20">
+                            <span className="text-cyan-400 font-bold text-xs">LETTERS</span>
+                            <button onClick={() => setCollectLettersPending(!collectLettersPending)} className={`px-2 py-1 rounded-lg font-bold text-xs transition-all ${collectLettersPending ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{collectLettersPending ? 'YES' : 'OFF'}</button>
                         </div>
                     </div>
 

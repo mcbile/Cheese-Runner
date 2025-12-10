@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * Player component - Lab mouse character with physics, animation, and input
- * Refactored to use modular hooks for better maintainability
+ * Uses modular hooks for physics and animation
  */
 
 import React, { useRef, useEffect, useMemo } from 'react';
@@ -11,16 +11,17 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../store';
 import {
-    LANE_WIDTH,
     GameStatus,
-    GRAVITY,
     JUMP_FORCE,
-    SPRING_STIFFNESS,
-    SPRING_DAMPING,
     MAX_LATERAL_VELOCITY,
     INVINCIBILITY_DURATION,
     TOUCH_CONFIG,
-    getLaneBounds
+    getLaneBounds,
+    LANE_WIDTH,
+    SPRING_STIFFNESS,
+    SPRING_DAMPING,
+    GRAVITY,
+    RUN_SPEED_BASE
 } from '../../types';
 import { audio } from '../System/Audio';
 import { mobileUtils } from '../System/MobileUtils';
@@ -44,15 +45,19 @@ import {
     PLAYER_SHADOW_GEO
 } from './geometries';
 
-// Import animation utilities
+// Import hooks
 import {
+    usePlayerPhysics,
+    updateHorizontalPhysics,
+    updateJumpPhysics,
+    resetPhysicsState,
     updateTailAnimation,
     updateRunningAnimation,
     updateIdleAnimation,
     updateJumpingAnimation,
     updateShadow,
     type AnimationRefs
-} from './hooks/usePlayerAnimation';
+} from './hooks';
 
 // Re-export geometries for backward compatibility
 export {
@@ -91,14 +96,10 @@ export const Player: React.FC = () => {
     // Lane state
     const [lane, setLane] = React.useState(0);
     const laneRef = useRef(0);
-    const targetX = useRef(0);
 
-    // Physics state
-    const isJumping = useRef(false);
-    const velocityY = useRef(0);
-    const velocityX = useRef(0);
-    const jumpsPerformed = useRef(0);
-    const spinRotation = useRef(0);
+    // Physics state from hook
+    const physicsState = usePlayerPhysics();
+    const { isJumping, velocityY, velocityX, jumpsPerformed, spinRotation, targetX } = physicsState;
 
     // Animation state
     const animTime = useRef(0);
@@ -178,23 +179,19 @@ export const Player: React.FC = () => {
     useEffect(() => {
         // Reset on LEVEL_PRELOAD (between levels) or COUNTDOWN (level 1 start)
         if (status === GameStatus.LEVEL_PRELOAD || status === GameStatus.COUNTDOWN) {
-            isJumping.current = false;
-            jumpsPerformed.current = 0;
-            velocityY.current = 0;
+            // Use hook's reset function for physics state
+            resetPhysicsState(physicsState, groupRef.current, bodyRef.current);
             velocityX.current = 0;
-            spinRotation.current = 0;
             targetX.current = 0;
             animTime.current = 0;
             setLane(0);
             setPlayerLane(0);
             if (groupRef.current) {
-                groupRef.current.position.y = 0;
                 groupRef.current.position.x = 0;
                 groupRef.current.rotation.set(0, 0, 0);
                 groupRef.current.visible = true;
             }
             if (bodyRef.current) {
-                bodyRef.current.rotation.set(0, 0, 0);
                 bodyRef.current.position.set(0, 0, 0);
             }
             // Reset all limbs to neutral position
@@ -205,6 +202,7 @@ export const Player: React.FC = () => {
             if (rightLegRef.current) rightLegRef.current.rotation.set(0, 0, 0);
             if (tailRef.current) tailRef.current.rotation.set(0, 0, 0);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [status, setPlayerLane]);
 
     // --- Lane bounds check ---
@@ -248,10 +246,12 @@ export const Player: React.FC = () => {
             lastShootTime.current = now;
             audio.playShoot();
             mobileUtils.shoot();
+            // Use target lane position instead of current visual position
+            // This ensures projectile spawns where player intends to be, not where animation is
             window.dispatchEvent(new CustomEvent('player-shoot', {
                 detail: {
                     position: [
-                        groupRef.current.position.x,
+                        lane * LANE_WIDTH,  // Target lane, not current position
                         groupRef.current.position.y + 0.8,
                         groupRef.current.position.z
                     ]
@@ -340,12 +340,12 @@ export const Player: React.FC = () => {
     }, [setPlayerLane, takeDamage]);
 
     // --- Touch input with invisible control zones ---
-    // Bottom 25% of screen: LEFT half = shoot (tap), RIGHT half = joystick (swipes)
+    // Bottom 40% of screen: LEFT half = shoot (tap), RIGHT half = joystick (swipes)
     useEffect(() => {
         const { SWIPE_THRESHOLD_X, SWIPE_THRESHOLD_Y, MAX_SWIPE_TIME, SWIPE_DOWN_THRESHOLD } = TOUCH_CONFIG;
-        const CONTROL_ZONE_HEIGHT = 0.25; // Bottom 25% of screen
+        const CONTROL_ZONE_HEIGHT = 0.40; // Bottom 40% of screen
 
-        // Helper to check if touch is in control zone (bottom 25%)
+        // Helper to check if touch is in control zone (bottom 40%)
         const isInControlZone = (y: number) => {
             const screenHeight = window.innerHeight;
             return y > screenHeight * (1 - CONTROL_ZONE_HEIGHT);
@@ -515,13 +515,19 @@ export const Player: React.FC = () => {
 
         try {
             // 1. Horizontal spring physics with velocity clamping
+            // Adaptive lateral speed: scales with game speed (10% extra per speed unit above base)
+            const speedRatio = 1 + (Math.max(0, speed - RUN_SPEED_BASE) * 0.1);
+            const adaptiveStiffness = SPRING_STIFFNESS * speedRatio;
+            const adaptiveDamping = SPRING_DAMPING * speedRatio;
+            const adaptiveMaxVelocity = MAX_LATERAL_VELOCITY * speedRatio;
+
             targetX.current = lane * LANE_WIDTH;
             const currentX = groupRef.current.position.x;
             const displacement = targetX.current - currentX;
-            const acceleration = (SPRING_STIFFNESS * displacement) - (SPRING_DAMPING * velocityX.current);
+            const acceleration = (adaptiveStiffness * displacement) - (adaptiveDamping * velocityX.current);
             velocityX.current += acceleration * delta;
             // Clamp velocity to prevent jerky overshooting
-            velocityX.current = THREE.MathUtils.clamp(velocityX.current, -MAX_LATERAL_VELOCITY, MAX_LATERAL_VELOCITY);
+            velocityX.current = THREE.MathUtils.clamp(velocityX.current, -adaptiveMaxVelocity, adaptiveMaxVelocity);
             groupRef.current.position.x += velocityX.current * delta;
 
             // 2. Vertical jump physics

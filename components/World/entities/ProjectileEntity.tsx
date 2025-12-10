@@ -6,34 +6,47 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GameObject, GameStatus } from '../../../types';
-import { useStore } from '../../../store';
+import { ProjectileObject } from '../../../types';
 import { PROJECTILE_GEO } from '../geometries';
-import { getFireProjectileTexture } from '../sprites';
+import { getFireProjectileTexture, getMissDollarTexture } from './sprites';
+import { calculateProjectileArcHeight } from '../systems/MovementSystem';
 
 interface ProjectileEntityProps {
-    data: GameObject;
+    data: ProjectileObject;
 }
 
 export const ProjectileEntity: React.FC<ProjectileEntityProps> = ({ data }) => {
     const groupRef = useRef<THREE.Group>(null);
-    const meshRef = useRef<THREE.Mesh>(null);
-    const { status } = useStore();
     const fireTexture = useMemo(() => data.isFirewall ? getFireProjectileTexture() : null, [data.isFirewall]);
+    const missDollarTexture = useMemo(() => getMissDollarTexture(), []);
 
-    useFrame((_, delta) => {
+    useFrame(() => {
         if (!groupRef.current) return;
-        groupRef.current.position.set(data.position[0], data.position[1], data.position[2]);
 
-        if (status === GameStatus.PAUSED || status === GameStatus.COUNTDOWN) return;
+        // Calculate arc height for boss fight trajectory
+        const arcHeight = calculateProjectileArcHeight(
+            data.position[2],
+            data.startZ ?? data.position[2],
+            data.arcEnabled ?? false
+        );
 
-        // Rotate only normal projectile (not firewall)
-        if (!data.isFirewall && meshRef.current) {
-            meshRef.current.rotation.z += delta * 15;
-        }
+        // Apply position with arc offset
+        const baseY = data.position[1];
+        groupRef.current.position.set(data.position[0], baseY + arcHeight, data.position[2]);
     });
 
-    // Firewall projectile - 🔥 emoji sprite, no rotation
+    // Fading projectile - red $ symbol when reaching max distance
+    if (data.isFading) {
+        return (
+            <group ref={groupRef}>
+                <sprite scale={[1.5, 1.5, 1]}>
+                    <spriteMaterial map={missDollarTexture} transparent toneMapped={false} />
+                </sprite>
+            </group>
+        );
+    }
+
+    // Firewall projectile - 🔥 emoji sprite
     if (data.isFirewall && fireTexture) {
         return (
             <group ref={groupRef}>
@@ -45,14 +58,14 @@ export const ProjectileEntity: React.FC<ProjectileEntityProps> = ({ data }) => {
         );
     }
 
-    // Normal projectile - gold color
-    const goldColor = '#FFD700';
+    // Normal projectile - yellow glowing sphere (75% of firewall size)
+    const yellowColor = '#FFDD00';
     return (
         <group ref={groupRef}>
-            <mesh ref={meshRef} geometry={PROJECTILE_GEO} rotation={[Math.PI / 2, 0, 0]}>
-                <meshBasicMaterial color={data.color || goldColor} />
+            <mesh geometry={PROJECTILE_GEO}>
+                <meshBasicMaterial color={yellowColor} />
             </mesh>
-            <pointLight distance={3} intensity={1} color={data.color || goldColor} />
+            <pointLight distance={4} intensity={1.5} color={yellowColor} />
         </group>
     );
 };

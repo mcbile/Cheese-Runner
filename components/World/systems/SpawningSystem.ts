@@ -6,7 +6,7 @@
  * Handles spawning of enemies, pickups, boss, and portal.
  */
 
-import { GameObject, ObjectType, LANE_WIDTH, SPAWN_DISTANCE, PowerUpType, GEMINI_COLORS, SPAWN_THRESHOLD, EAGLE_MOVEMENT, getLaneBounds } from '../../../types';
+import { GameObject, ObjectType, LANE_WIDTH, PowerUpType, GEMINI_COLORS, SPAWN_THRESHOLD, EAGLE_MOVEMENT, getLaneBounds, getSpawnZ, SpawnType } from '../../../types';
 import {
     createMousetrap,
     createSnake,
@@ -40,12 +40,14 @@ export interface SpawningRefs {
 export interface SpawningState {
     level: number;
     laneCount: number;
+    speed: number;              // Current game speed for spawn distance calculation
     lives: number;
     collectedLetters: number[];
     wordCompleted: boolean;
     bossDefeated: boolean;
     bossDeathComplete: boolean;
     chasingSnakesActive: boolean;
+    enemyRushProgress: { snake: boolean; cat: boolean; owl: boolean };
     bossSpawned: boolean;
     portalSpawned: boolean;
     snakesCrossedZero: number;  // From refs - for spawn logic
@@ -53,6 +55,7 @@ export interface SpawningState {
     snakesKilled: number;       // From levelStats - for unlock logic
     catsKilled: number;         // From levelStats - for unlock logic
     totalRewards: number;       // For FIREWALL spawn (every 50 reward points)
+    markEnemyRushSpawned?: (enemy: 'snake' | 'cat' | 'owl') => void;
 }
 
 export interface SpawningCallbacks {
@@ -86,14 +89,16 @@ export function getRandomLane(laneCount: number): number {
 
 /**
  * Spawn boss when word is completed (uses Object Pool)
+ * Boss spawn Z is speed-dependent (further at higher speeds)
  */
 export function spawnBoss(
     level: number,
+    speed: number,
     callbacks: SpawningCallbacks
 ): GameObject {
     const bossHP = 20 + ((level - 1) * 10);
     callbacks.onSetBossActive(true, bossHP);
-    return createBoss(bossHP);
+    return createBoss(bossHP, speed);
 }
 
 /**
@@ -105,13 +110,26 @@ export function spawnPortal(): GameObject {
 
 /**
  * Spawn a letter pickup (uses Object Pool)
+ * Letter O (index 6) only spawns after all other letters (0-5) are collected
  */
 export function spawnLetter(
     lane: number,
     spawnZ: number,
     collectedLetters: number[]
 ): GameObject | null {
-    const availableIndices = TARGET_WORD.map((_, i) => i).filter(i => !collectedLetters.includes(i));
+    // Check if all letters except O (indices 0-5) are collected
+    const nonOLettersCollected = [0, 1, 2, 3, 4, 5].every(i => collectedLetters.includes(i));
+
+    // Filter available indices - O (index 6) only available if 0-5 are collected
+    const availableIndices = TARGET_WORD.map((_, i) => i).filter(i => {
+        // Already collected - not available
+        if (collectedLetters.includes(i)) return false;
+        // O (index 6) - only available when all others collected
+        if (i === 6) return nonOLettersCollected;
+        // Other letters always available if not collected
+        return true;
+    });
+
     if (availableIndices.length === 0) return null;
 
     const chosenIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
@@ -168,9 +186,13 @@ export function spawnEagle(lane: number, spawnZ: number): GameObject {
 
 /**
  * Process regular spawning (enemies, pickups, powerups)
+ * Uses per-type spawn distances based on current speed:
+ * - Collectibles (letters, cheese, traps, powerups): z=-85 at base speed
+ * - Enemies (snake/cat/owl): z=-80 at base speed
+ * Spawn distance increases as speed increases (SPAWN_SPEED_FACTOR)
  */
 export function processRegularSpawning(
-    spawnZ: number,
+    baseSpawnZ: number, // Used for gap calculations, actual spawn uses getSpawnZ
     state: SpawningState,
     refs: SpawningRefs,
     existingObjects: GameObject[]
@@ -178,8 +200,12 @@ export function processRegularSpawning(
     const newObjects: GameObject[] = [];
     const updatedRefs: Partial<SpawningRefs> = {};
 
-    const { level, laneCount, lives, collectedLetters, chasingSnakesActive, totalRewards } = state;
+    const { level, laneCount, speed, lives, collectedLetters, chasingSnakesActive, enemyRushProgress, totalRewards, markEnemyRushSpawned } = state;
     const { distanceTraveled, nextLetterDistance, mousetrapsSinceLastSnake, catsSpawnedCount, cheeseSpawnedCount, lastHeartSpawnTime, lastFirewallRewardCount, pendingCatSpawns, pendingEagleSpawns } = refs;
+
+    // Per-type spawn Z positions (dynamic based on speed)
+    const collectiblesZ = getSpawnZ('COLLECTIBLES', speed);
+    const enemyZ = getSpawnZ('ENEMY', speed);
 
     // Use pending spawns from refs (already calculated in processSpawning)
     let currentPendingCats = pendingCatSpawns;
@@ -188,38 +214,39 @@ export function processRegularSpawning(
     // Check if cat or eagle already exists on road - only ONE cat OR ONE eagle allowed at a time
     const existingCat = existingObjects.find(o => o.type === ObjectType.CAT && o.active);
     const existingEagle = existingObjects.find(o => o.type === ObjectType.EAGLE && o.active);
+    const existingSnake = existingObjects.find(o => o.type === ObjectType.SNAKE && o.active);
     const hasCatOrEagle = !!existingCat || !!existingEagle;
 
     const isLetterDue = distanceTraveled >= nextLetterDistance;
 
     if (isLetterDue) {
         const lane = getRandomLane(laneCount);
-        const letter = spawnLetter(lane, spawnZ, collectedLetters);
+        const letter = spawnLetter(lane, collectiblesZ, collectedLetters);
 
         if (letter) {
             newObjects.push(letter);
             updatedRefs.nextLetterDistance = nextLetterDistance + getLetterInterval(level);
         } else {
-            // Fallback - spawn cheese if all letters collected
+            // Fallback - spawn high cheese if all letters collected
             updatedRefs.cheeseSpawnedCount = cheeseSpawnedCount + 1;
-            newObjects.push(spawnCheese(lane, spawnZ, 50));
+            newObjects.push(spawnCheese(lane, collectiblesZ, 50, 3.15));
         }
     } else if (lives === 1 && (Date.now() - lastHeartSpawnTime) > SPAWN_THRESHOLD.HEART_COOLDOWN_MS) {
         // Heart powerup - only when player has 1 life, max once per cooldown
         const lane = getRandomLane(laneCount);
-        newObjects.push(spawnPowerUp(lane, spawnZ, PowerUpType.HEART));
+        newObjects.push(spawnPowerUp(lane, collectiblesZ, PowerUpType.HEART));
         updatedRefs.lastHeartSpawnTime = Date.now();
     } else if (Math.random() < SPAWN_THRESHOLD.SPEED_BOOST_CHANCE) {
         // Speed boost powerup
         const lane = getRandomLane(laneCount);
-        newObjects.push(spawnPowerUp(lane, spawnZ, PowerUpType.SPEED_BOOST));
+        newObjects.push(spawnPowerUp(lane, collectiblesZ, PowerUpType.SPEED_BOOST));
     } else if (Math.random() < SPAWN_THRESHOLD.SLOW_MOTION_CHANCE) {
         // Slow motion powerup (half as frequent as speed boost)
         const lane = getRandomLane(laneCount);
-        newObjects.push(spawnPowerUp(lane, spawnZ, PowerUpType.SLOW_MOTION));
+        newObjects.push(spawnPowerUp(lane, collectiblesZ, PowerUpType.SLOW_MOTION));
     } else if (Math.random() > 0.1) {
         // Enemy or cheese spawn
-        const isObstacle = Math.random() > 0.20;
+        const isObstacle = Math.random() > 0.067; // 93.3% obstacles → 84% total (90% × 93.3%)
 
         if (isObstacle) {
             // Get available lanes
@@ -232,16 +259,36 @@ export function processRegularSpawning(
             let currentCatsSpawnedCount = catsSpawnedCount;
             let currentCheeseSpawnedCount = cheeseSpawnedCount;
 
-            // Snake threshold varies based on chasing snakes perk
-            const snakeThreshold = chasingSnakesActive
-                ? SPAWN_THRESHOLD.SNAKE_INTERVAL_CHASING
-                : SPAWN_THRESHOLD.SNAKE_INTERVAL;
-
+            // Enemy Rush: spawn 1 snake, 1 cat, 1 owl in sequence, then deactivate
+            // Priority 0: Enemy Rush spawns
+            if (chasingSnakesActive && markEnemyRushSpawned) {
+                // Spawn snake first (if not already spawned and no snake exists)
+                if (!enemyRushProgress.snake && !existingSnake) {
+                    const lane = availableLanes[0];
+                    newObjects.push(spawnSnake(lane * LANE_WIDTH, lane, enemyZ, laneCount));
+                    markEnemyRushSpawned('snake');
+                }
+                // Spawn cat second (if snake done, cat not spawned, no cat/eagle exists)
+                else if (enemyRushProgress.snake && !enemyRushProgress.cat && !hasCatOrEagle) {
+                    const lane = availableLanes[0];
+                    const laneX = lane * LANE_WIDTH;
+                    currentCatsSpawnedCount += 1;
+                    newObjects.push(spawnCat(laneX, lane, enemyZ, false));
+                    markEnemyRushSpawned('cat');
+                }
+                // Spawn owl third (if snake and cat done, owl not spawned, no cat/eagle exists)
+                else if (enemyRushProgress.snake && enemyRushProgress.cat && !enemyRushProgress.owl && !hasCatOrEagle) {
+                    const lane = availableLanes[0];
+                    newObjects.push(spawnEagle(lane, enemyZ));
+                    markEnemyRushSpawned('owl'); // This will auto-deactivate Enemy Rush
+                }
+            }
+            // Regular spawning (when Enemy Rush is not active or waiting for enemies to clear)
             // Priority 1: Spawn pending eagles (instant after cat kill)
             // BUT only if no cat or eagle already exists
-            if (currentPendingEagles > 0 && !hasCatOrEagle) {
+            else if (currentPendingEagles > 0 && !hasCatOrEagle) {
                 const lane = availableLanes[0];
-                newObjects.push(spawnEagle(lane, spawnZ));
+                newObjects.push(spawnEagle(lane, enemyZ));
                 currentPendingEagles -= 1;
             }
             // Priority 2: Spawn pending cats (instant after every 2 snake kills)
@@ -250,30 +297,31 @@ export function processRegularSpawning(
                 const lane = availableLanes[0];
                 const laneX = lane * LANE_WIDTH;
                 currentCatsSpawnedCount += 1;
-                newObjects.push(spawnCat(laneX, lane, spawnZ, false)); // canSpawnEagle = false (we control eagle spawns now)
+                newObjects.push(spawnCat(laneX, lane, enemyZ, false)); // canSpawnEagle = false (we control eagle spawns now)
                 currentPendingCats -= 1;
             }
             // Priority 3: Regular snake spawn (every N mousetraps)
-            else if (currentMousetrapsSinceLastSnake >= snakeThreshold) {
+            else if (currentMousetrapsSinceLastSnake >= SPAWN_THRESHOLD.SNAKE_INTERVAL) {
                 currentMousetrapsSinceLastSnake = 0;
                 const lane = availableLanes[0];
-                newObjects.push(spawnSnake(lane * LANE_WIDTH, lane, spawnZ, laneCount));
+                newObjects.push(spawnSnake(lane * LANE_WIDTH, lane, enemyZ, laneCount));
             } else {
                 // Spawn mousetraps (1-3 based on probability)
                 let countToSpawn = 1;
                 const p = Math.random();
-                if (p > 0.80) countToSpawn = Math.min(3, availableLanes.length);
-                else if (p > 0.50) countToSpawn = Math.min(2, availableLanes.length);
+                // 15% chance for 3 traps, 30% chance for 2 traps, 55% chance for 1 trap
+                if (p > 0.85) countToSpawn = Math.min(3, availableLanes.length);
+                else if (p > 0.55) countToSpawn = Math.min(2, availableLanes.length);
 
                 for (let i = 0; i < countToSpawn; i++) {
                     const lane = availableLanes[i];
                     const laneX = lane * LANE_WIDTH;
                     currentMousetrapsSinceLastSnake += 1;
-                    newObjects.push(spawnMousetrap(laneX, spawnZ));
-                    // 80% chance for low cheese on top of mousetrap (соотношение 4:1)
-                    if (Math.random() < 0.80) {
+                    newObjects.push(spawnMousetrap(laneX, collectiblesZ));
+                    // 60% chance for low cheese on top of mousetrap
+                    if (Math.random() < 0.60) {
                         currentCheeseSpawnedCount += 1;
-                        newObjects.push(spawnCheese(lane, spawnZ, 100, 1.2));
+                        newObjects.push(spawnCheese(lane, collectiblesZ, 100, 1.2));
                     }
                 }
             }
@@ -287,14 +335,14 @@ export function processRegularSpawning(
             // Only high cheese here (низкий сыр только на мышеловке)
             const lane = getRandomLane(laneCount);
             updatedRefs.cheeseSpawnedCount = cheeseSpawnedCount + 1;
-            newObjects.push(spawnCheese(lane, spawnZ, 50, 3.15));
+            newObjects.push(spawnCheese(lane, collectiblesZ, 50, 3.15));
         }
     }
 
     // FIREWALL powerup - spawns at regular reward intervals
     if (totalRewards >= lastFirewallRewardCount + SPAWN_THRESHOLD.FIREWALL_REWARD_INTERVAL) {
         const lane = getRandomLane(laneCount);
-        newObjects.push(spawnPowerUp(lane, spawnZ - 8, PowerUpType.FIREWALL));
+        newObjects.push(spawnPowerUp(lane, collectiblesZ - 8, PowerUpType.FIREWALL));
         updatedRefs.lastFirewallRewardCount = totalRewards;
     }
 
@@ -335,7 +383,7 @@ export function processSpawning(
 
     // Boss spawn
     if (wordCompleted && !bossSpawned && !bossDefeated) {
-        result.newObjects.push(spawnBoss(level, callbacks));
+        result.newObjects.push(spawnBoss(level, speed, callbacks));
         result.bossSpawned = true;
     }
 
@@ -367,9 +415,13 @@ export function processSpawning(
     result.updatedRefs.pendingEagleSpawns = pendingEagleSpawns + newEagleSpawnsFromKills;
 
     // Regular spawning (only if no boss/portal phase)
-    if (furthestZ > -SPAWN_DISTANCE && !wordCompleted && !isBossFight) {
-        const minGap = 12 + (speed * 0.4);
-        const spawnZ = Math.min(furthestZ - minGap, -SPAWN_DISTANCE);
+    // Spawn only when furthest object has moved past the spawn threshold + minGap
+    const furthestSpawnZ = getSpawnZ('COLLECTIBLES', speed);
+    const minGap = 22 + (speed * 0.6);
+    // Only spawn when the furthest object is closer than (spawnZ + minGap)
+    // This ensures minGap distance between spawns
+    if (furthestZ > (furthestSpawnZ + minGap) && !wordCompleted && !isBossFight) {
+        const baseSpawnZ = furthestSpawnZ;
 
         // Create updated refs with new pending values for processRegularSpawning
         const updatedRefs: SpawningRefs = {
@@ -380,7 +432,7 @@ export function processSpawning(
             lastCatsKilled: result.updatedRefs.lastCatsKilled!
         };
 
-        const regularResult = processRegularSpawning(spawnZ, state, updatedRefs, keptObjects);
+        const regularResult = processRegularSpawning(baseSpawnZ, state, updatedRefs, keptObjects);
         result.newObjects.push(...regularResult.newObjects);
         // Merge regular result (it may update pendingCatSpawns if a cat was spawned)
         Object.assign(result.updatedRefs, regularResult.updatedRefs);

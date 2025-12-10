@@ -84,6 +84,55 @@ const StripeAnimator: React.FC = () => {
     return null;
 };
 
+// Boss attack lane warning overlay - flashing red highlight
+const BossAttackWarning: React.FC = () => {
+    const { isBossActive, bossChargePhase, bossChargeLane, bossChargeWidth, laneCount } = useStore();
+    const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+
+    // Flashing animation
+    useFrame((state) => {
+        if (!materialRef.current) return;
+
+        // Show warning during phase 1 (retreat) and phase 2 (charge)
+        const showWarning = isBossActive && (bossChargePhase === 1 || bossChargePhase === 2);
+
+        if (showWarning) {
+            // Fast flashing effect (4 Hz)
+            const flash = Math.sin(state.clock.elapsedTime * 25) * 0.5 + 0.5;
+            materialRef.current.opacity = 0.15 + flash * 0.25;
+            materialRef.current.visible = true;
+        } else {
+            materialRef.current.visible = false;
+        }
+    });
+
+    // Don't render if boss not active
+    if (!isBossActive) return null;
+
+    // chargeLane = CENTER of attack zone (consistent across all widths)
+    // Width 1: integer lane, Width 2: half lane (0.5, 1.5...), Width 3: integer lane
+    // Position is simply chargeLane * LANE_WIDTH for all cases
+    const warningWidth = bossChargeWidth * LANE_WIDTH;
+    const warningCenterX = bossChargeLane * LANE_WIDTH;
+
+    return (
+        <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[warningCenterX, 0.03, -50]}
+        >
+            <planeGeometry args={[warningWidth, 300]} />
+            <meshBasicMaterial
+                ref={materialRef}
+                color="#FF0000"
+                transparent
+                opacity={0.15}
+                depthWrite={false}
+                visible={false}
+            />
+        </mesh>
+    );
+};
+
 export const Road: React.FC = () => {
     const { laneCount } = useStore();
     const { min: minLane, max: maxLane } = getLaneBounds(laneCount);
@@ -108,6 +157,9 @@ export const Road: React.FC = () => {
                 <planeGeometry args={[(maxLane - minLane + 1) * LANE_WIDTH + 2, 300]} />
                 <meshStandardMaterial color="#374151" roughness={0.9} />
             </mesh>
+
+            {/* Boss attack warning - flashing red lanes */}
+            <BossAttackWarning />
 
             {/* Animated lane stripes */}
             {markerPositions.map((x, i) => (

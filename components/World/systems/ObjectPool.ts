@@ -19,7 +19,8 @@ import {
     ProjectileObject,
     PowerUpObject,
     BossObject,
-    BossAmmoObject
+    BossAmmoObject,
+    getSpawnZ
 } from '../../../types';
 
 // Pre-allocated ID counter instead of uuid
@@ -45,11 +46,14 @@ Object.values(ObjectType).forEach(type => {
 
 /**
  * Get object from pool or create new one
+ * Generates a new unique ID to prevent React key collisions
  */
 function getFromPool<T extends GameObject>(type: ObjectType): T | null {
     const pool = pools.get(type);
     if (pool && pool.length > 0) {
-        return pool.pop() as T;
+        const obj = pool.pop() as T;
+        obj.id = generateId(); // Always generate new ID for reused objects
+        return obj;
     }
     return null;
 }
@@ -67,10 +71,10 @@ export function returnToPool(obj: GameObject): void {
 
 /**
  * Clear all pools (call on game restart)
+ * Note: ID counter is NOT reset to prevent key collisions with lingering React components
  */
 export function clearPools(): void {
     pools.forEach(pool => pool.length = 0);
-    resetIdCounter();
 }
 
 /**
@@ -311,7 +315,7 @@ export function createPortal(): ShopPortalObject {
 /**
  * Create or reuse a Projectile object
  */
-export function createProjectile(x: number, y: number, z: number, isFirewall: boolean = false): ProjectileObject {
+export function createProjectile(x: number, y: number, z: number, isFirewall: boolean = false, arcEnabled: boolean = false): ProjectileObject {
     const existing = getFromPool<ProjectileObject>(ObjectType.PROJECTILE);
 
     if (existing) {
@@ -320,6 +324,12 @@ export function createProjectile(x: number, y: number, z: number, isFirewall: bo
         existing.position[2] = z;
         existing.active = true;
         existing.isFirewall = isFirewall;
+        existing.startZ = z;
+        existing.arcEnabled = arcEnabled;
+        existing.prevZ = z; // Initialize prevZ for sweep collision
+        existing.hasHit = false;
+        existing.isFading = false;
+        existing.fadeTimer = undefined;
         return existing;
     }
 
@@ -328,7 +338,10 @@ export function createProjectile(x: number, y: number, z: number, isFirewall: bo
         type: ObjectType.PROJECTILE,
         position: [x, y, z],
         active: true,
-        isFirewall
+        isFirewall,
+        startZ: z,
+        arcEnabled,
+        prevZ: z // Initialize prevZ for sweep collision
     };
 }
 
@@ -359,14 +372,17 @@ export function createPowerUp(lane: number, z: number, powerUpType: PowerUpType)
 
 /**
  * Create or reuse a Boss object
+ * Boss spawns at speed-based Z and moves to z=-25 (isEntering=true during approach)
+ * Spawn Z increases with game speed for player reaction time
  */
-export function createBoss(health: number): BossObject {
+export function createBoss(health: number, speed: number = 18): BossObject {
+    const SPAWN_Z = getSpawnZ('BOSS', speed); // Dynamic spawn Z based on speed
     const existing = getFromPool<BossObject>(ObjectType.BOSS);
 
     if (existing) {
         existing.position[0] = 0;
         existing.position[1] = 0;
-        existing.position[2] = -25;
+        existing.position[2] = SPAWN_Z;
         existing.active = true;
         existing.health = health;
         existing.maxHealth = health;
@@ -385,13 +401,14 @@ export function createBoss(health: number): BossObject {
         existing.deathStartZ = 0;
         existing.deathLane = 0;
         existing.lastHitTime = undefined;
+        existing.isEntering = true; // Boss is approaching position
         return existing;
     }
 
     return {
         id: generateId(),
         type: ObjectType.BOSS,
-        position: [0, 0, -25],
+        position: [0, 0, SPAWN_Z],
         active: true,
         health,
         maxHealth: health,
@@ -408,7 +425,8 @@ export function createBoss(health: number): BossObject {
         deathTimer: 0,
         deathPhase: 0,
         deathStartZ: 0,
-        deathLane: 0
+        deathLane: 0,
+        isEntering: true // Boss is approaching position
     };
 }
 

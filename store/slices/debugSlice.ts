@@ -7,10 +7,8 @@
 
 import { StateCreator } from 'zustand';
 import { GameStatus, getLevelStartSpeed } from '../../types';
-import { audio } from '../../components/System/Audio';
 import { GameStore, DebugSlice } from '../types';
 import { INITIAL_STATS, getLaneCountForLevel } from '../utils';
-import { DEV_START_PRELOAD_EVENT } from '../../App';
 
 // Dev password
 const DEV_PASSWORD = 'Ch3353';
@@ -33,16 +31,8 @@ export const createDebugSlice: StateCreator<GameStore, [], [], DebugSlice> = (se
 
         const newDevMode = !isDevMode;
 
-        // Pause/resume audio when opening/closing dev console during gameplay
-        if (status === GameStatus.PLAYING || status === GameStatus.COUNTDOWN) {
-            if (newDevMode) {
-                audio.pauseAudio();
-            } else {
-                audio.resumeAudio();
-            }
-        }
-
         set({ isDevMode: newDevMode });
+        // Note: Dev console doesn't pause audio - game continues running
     },
 
     authenticateDev: (password: string) => {
@@ -126,6 +116,12 @@ export const createDebugSlice: StateCreator<GameStore, [], [], DebugSlice> = (se
         });
     },
 
+    debugCollectLetters: () => {
+        // Collect all letters except O (indices 0-5)
+        // K=0, A=1, A=2, S=3, I=4, N=5, O=6
+        set({ collectedLetters: [0, 1, 2, 3, 4, 5] });
+    },
+
     debugSetSpeed: (speed: number) => {
         const clampedSpeed = Math.max(0.1, Math.min(999, speed));
         set({ speed: clampedSpeed });
@@ -140,13 +136,11 @@ export const createDebugSlice: StateCreator<GameStore, [], [], DebugSlice> = (se
             : getLevelStartSpeed(targetLevel, difficulty);
         const lanes = getLaneCountForLevel(targetLevel);
 
-        // Start music
-        audio.startMusic();
-
         // Preserve lives from shop purchases (maxLives >= 5 means extra lives were bought)
         // Start with full health (lives = maxLives)
         const preservedMaxLives = Math.max(5, maxLives);
         const preservedLives = Math.max(lives, preservedMaxLives);
+        // Audio sync handled by useAudioSync hook (starts music on COUNTDOWN)
 
         // Set game state - preserve balance, inventory, lives, and shop purchases
         set({

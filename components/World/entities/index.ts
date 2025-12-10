@@ -11,10 +11,11 @@ export { PowerupEntity } from './PowerupEntity';
 export { ProjectileEntity } from './ProjectileEntity';
 export { BossAmmoEntity } from './BossAmmoEntity';
 export { CatEntity } from './CatEntity';
-export { EagleEntity } from './EagleEntity';
+export { FlyingEntity, EagleEntity } from './EagleEntity';
 export { BossEntity } from './BossEntity';
 export { PortalEntity } from './PortalEntity';
 export { SnakeEntity } from './SnakeEntity';
+export { MoneyEffectEntity } from './MoneyEffectEntity';
 
 // Unified entity component that delegates to specialized renderers
 export { GameEntity } from './GameEntity';

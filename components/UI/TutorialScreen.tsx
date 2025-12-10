@@ -39,7 +39,7 @@ const ExitConfirmModal: React.FC<{ onConfirm: () => void; onCancel: () => void }
 
 interface TutorialStep {
     title: string;
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     color: string;
     content: React.ReactNode;
 }
@@ -104,10 +104,10 @@ const TUTORIAL_STEPS: TutorialStep[] = [
                             </div>
                         </div>
                         <div className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
-                            <span className="text-2xl">💼</span>
+                            <span className="text-2xl">⚙️</span>
                             <div>
-                                <span className="text-sm text-gray-200 font-bold">Bag Button</span>
-                                <div className="text-xs text-cyan-400">Inventory</div>
+                                <span className="text-sm text-gray-200 font-bold">Settings</span>
+                                <div className="text-xs text-cyan-400">Bag, Sound, Camera</div>
                             </div>
                         </div>
                     </div>
@@ -116,11 +116,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
                 {/* Desktop Controls */}
                 <div className="bg-white/10 rounded-2xl border border-purple-500/30 p-4">
                     <div className="text-sm text-purple-400 uppercase tracking-wider mb-3 text-center font-bold">🖥️ Desktop</div>
-                    <div className="flex justify-center items-center gap-3">
-                        <div className="flex flex-col items-center gap-1">
-                            <span className="w-14 h-12 bg-black border border-white/30 rounded-xl text-white flex items-center justify-center text-sm font-bold">SPACE</span>
-                            <span className="text-sm text-gray-300 font-bold">Shoot</span>
-                        </div>
+                    <div className="grid grid-cols-3 gap-2 justify-items-center">
                         <div className="flex flex-col items-center gap-1">
                             <span className="w-14 h-12 bg-black border border-white/30 rounded-xl text-white flex items-center justify-center text-lg font-bold">←→</span>
                             <span className="text-sm text-gray-300 font-bold">Move</span>
@@ -130,8 +126,20 @@ const TUTORIAL_STEPS: TutorialStep[] = [
                             <span className="text-sm text-gray-300 font-bold">Jump</span>
                         </div>
                         <div className="flex flex-col items-center gap-1">
-                            <span className="w-14 h-12 bg-black border border-white/30 rounded-xl text-white flex items-center justify-center text-sm font-bold">2×↓</span>
-                            <span className="text-sm text-gray-300 font-bold">Bag</span>
+                            <span className="w-14 h-12 bg-black border border-white/30 rounded-xl text-white flex items-center justify-center text-sm font-bold">SPACE</span>
+                            <span className="text-sm text-gray-300 font-bold">🎯 Shoot</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <span className="w-14 h-12 bg-black border border-white/30 rounded-xl text-white flex items-center justify-center text-sm font-bold">ESC</span>
+                            <span className="text-sm text-gray-300 font-bold">⚙️ Settings</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <span className="w-14 h-12 bg-black border border-white/30 rounded-xl text-white flex items-center justify-center text-sm font-bold">M</span>
+                            <span className="text-sm text-gray-300 font-bold">🔇 Mute</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <span className="w-14 h-12 bg-black border border-white/30 rounded-xl text-white flex items-center justify-center text-sm font-bold">V</span>
+                            <span className="text-sm text-gray-300 font-bold">🐭 View</span>
                         </div>
                     </div>
                 </div>

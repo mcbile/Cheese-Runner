@@ -30,6 +30,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useStore } from './store';
 import { Preloader, Level1PreloadScreen } from './components/World/Preloader';
 import { audio } from './components/System/Audio';
+import { useAudioSync } from './components/System/useAudioSync';
 import { mobileUtils } from './components/System/MobileUtils';
 import {
     LANE_WIDTH,
@@ -188,6 +189,9 @@ const isMobileDevice = () => {
 
 function App() {
   const { status, startGame, isDevMode, toggleDevMode, toggleFirstPersonMode, isFirstPersonMode } = useStore();
+
+  // Sync audio with game state changes
+  useAudioSync();
 
   // Detect mobile for performance optimizations
   const [isMobile, setIsMobile] = useState(isMobileDevice);

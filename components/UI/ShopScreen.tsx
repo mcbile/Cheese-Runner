@@ -9,7 +9,7 @@ import { CONSUMABLES, UPGRADES } from './shopData';
 // Card color configs matching AboutScreen style
 const CARD_COLORS: Record<string, { border: string; text: string; icon: string }> = {
     'FULL_HEAL': { border: 'border-red-500/40', text: 'text-red-400', icon: 'text-red-400' },
-    'MAX_LIFE': { border: 'border-pink-500/40', text: 'text-pink-400', icon: 'text-pink-400' },
+    'MAX_LIFE': { border: 'border-rose-500/40', text: 'text-rose-400', icon: 'text-rose-400' },
     'SLOW_MOTION': { border: 'border-blue-500/40', text: 'text-blue-400', icon: 'text-blue-400' },
     'CHEESE_FEVER': { border: 'border-orange-500/40', text: 'text-orange-400', icon: 'text-orange-400' },
     'ENEMY_RUSH': { border: 'border-purple-500/40', text: 'text-purple-400', icon: 'text-purple-400' },
@@ -17,13 +17,13 @@ const CARD_COLORS: Record<string, { border: string; text: string; icon: string }
 };
 
 // Shop items in specific order for grid layout
-// Row 1: HEAL POTION (1000 pts) + EXTRA HEART (10x BET)
+// Row 1: HEAL POTION (1000 pts) + EXTRA LIFE (10x BET)
 // Row 2: TIME WARP (2000 pts) + CHEESE MAGIC (20x BET)
-// Row 3: ENEMY RUSH (3000 pts) + MORE CHEESE (30x BET)
+// Row 3: ENEMY RUSH (3000 pts) + CHEESE EXCHANGE (30x BET)
 const SHOP_ROWS = [
-    [CONSUMABLES[0], UPGRADES[0]], // HEAL + EXTRA HEART
+    [CONSUMABLES[0], UPGRADES[0]], // HEAL + EXTRA LIFE
     [CONSUMABLES[1], UPGRADES[1]], // TIME WARP + CHEESE MAGIC
-    [CONSUMABLES[2], UPGRADES[2]], // ENEMY RUSH + MORE CHEESE
+    [CONSUMABLES[2], UPGRADES[2]], // ENEMY RUSH + CHEESE EXCHANGE
 ];
 
 interface ShopCardProps {

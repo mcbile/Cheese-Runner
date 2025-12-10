@@ -8,7 +8,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Float } from '@react-three/drei';
 import { GameObject } from '../../../types';
-import { CheeseSprite, CheeseFlippedSprite } from '../sprites';
+import { CheeseSprite, CheeseFlippedSprite } from './sprites';
 import { SHADOW_CHEESE_GEO } from '../geometries';
 
 interface CheeseEntityProps {

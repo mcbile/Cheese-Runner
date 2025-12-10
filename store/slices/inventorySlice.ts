@@ -7,7 +7,6 @@
 
 import { StateCreator } from 'zustand';
 import { GameStatus, RUN_SPEED_BASE, DIFFICULTY_CONFIG } from '../../types';
-import { audio } from '../../components/System/Audio';
 import { GameStore, InventorySlice } from '../types';
 import { safeSetTimeout } from '../utils';
 
@@ -125,12 +124,12 @@ export const createInventorySlice: StateCreator<GameStore, [], [], InventorySlic
     },
 
     openInventory: () => {
-        audio.pauseAudio();
         set({ status: GameStatus.INVENTORY });
+        // Audio sync handled by useAudioSync hook
     },
 
     closeInventory: () => {
-        audio.resumeAudio();
         set({ status: GameStatus.PLAYING });
+        // Audio sync handled by useAudioSync hook
     }
 });

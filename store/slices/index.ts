@@ -5,7 +5,8 @@
  * Store Slices Exports
  */
 
-export { createGameStateSlice } from './gameStateSlice';
+export { createGameFlowSlice } from './gameFlowSlice';
+export { createGameProgressSlice } from './gameProgressSlice';
 export { createPlayerSlice } from './playerSlice';
 export { createEconomySlice } from './economySlice';
 export { createInventorySlice } from './inventorySlice';

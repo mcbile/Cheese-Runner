@@ -26,6 +26,7 @@ import { EagleEntity } from './EagleEntity';
 import { BossEntity } from './BossEntity';
 import { PortalEntity } from './PortalEntity';
 import { SnakeEntity } from './SnakeEntity';
+import { MoneyEffectEntity } from './MoneyEffectEntity';
 
 interface GameEntityProps {
     data: GameObject;
@@ -107,6 +108,9 @@ const GameEntityInner: React.FC<GameEntityProps> = ({ data }) => {
 
         case ObjectType.SHOP_PORTAL:
             return <PortalEntity data={data} />;
+
+        case ObjectType.MONEY_EFFECT:
+            return <MoneyEffectEntity data={data as any} />;
 
         default:
             return null;

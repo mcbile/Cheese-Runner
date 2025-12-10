@@ -20,6 +20,30 @@ export const createPowerUpSlice: StateCreator<GameStore, [], [], PowerUpSlice> =
     isSlowMotionActive: false,
     slowMotionEndTime: 0,
     chasingSnakesActive: false,
+    enemyRushProgress: { snake: false, cat: false, owl: false },
+
+    deactivateEnemyRush: () => {
+        set({
+            chasingSnakesActive: false,
+            enemyRushProgress: { snake: false, cat: false, owl: false }
+        });
+    },
+
+    markEnemyRushSpawned: (enemy) => {
+        const { enemyRushProgress, chasingSnakesActive } = get();
+        if (!chasingSnakesActive) return;
+
+        const newProgress = { ...enemyRushProgress, [enemy]: true };
+        set({ enemyRushProgress: newProgress });
+
+        // Check if all enemies spawned - deactivate
+        if (newProgress.snake && newProgress.cat && newProgress.owl) {
+            set({
+                chasingSnakesActive: false,
+                enemyRushProgress: { snake: false, cat: false, owl: false }
+            });
+        }
+    },
 
     collectPowerUp: (type) => {
         if (type === PowerUpType.FIREWALL) {

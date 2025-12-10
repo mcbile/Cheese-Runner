@@ -12,13 +12,17 @@ import {
     ObjectType,
     LANE_WIDTH,
     getLaneBounds,
-    PROJECTILE_SPEED,
-    BOSS_AMMO_SPEED,
+    SPEED_MULTIPLIERS,
     EAGLE_MOVEMENT,
     CAT_MOVEMENT,
     SNAKE_MOVEMENT,
     BOSS_MOVEMENT,
-    isBoss
+    isBoss,
+    isProjectile,
+    EagleObject,
+    CatObject,
+    SnakeObject,
+    BossObject
 } from '../../../types';
 import { createEagle, createBossAmmo } from './ObjectPool';
 import { audio } from '../../System/Audio';
@@ -31,6 +35,7 @@ export interface MovementContext {
     playerPos: THREE.Vector3;
     level: number;
     isBossFight: boolean;
+    difficulty: number; // 0 = EASY, 1 = MEDIUM, 2 = HARD
     // Precomputed values to avoid recalculation per-entity
     minLane: number;
     maxLane: number;
@@ -51,7 +56,8 @@ export function createMovementContext(
     laneCount: number,
     playerPos: THREE.Vector3,
     level: number,
-    isBossFight: boolean
+    isBossFight: boolean,
+    difficulty: number = 1 // 0 = EASY, 1 = MEDIUM, 2 = HARD
 ): MovementContext {
     const { min: minLane, max: maxLane } = getLaneBounds(laneCount);
     return {
@@ -62,6 +68,7 @@ export function createMovementContext(
         playerPos,
         level,
         isBossFight,
+        difficulty,
         minLane,
         maxLane,
         playerLane: Math.round(playerPos.x / LANE_WIDTH),
@@ -80,7 +87,7 @@ export interface MovementResult {
  * Process eagle movement with three phases: approaching, diving, retreating
  */
 export function processEagleMovement(
-    obj: GameObject,
+    obj: EagleObject,
     ctx: MovementContext
 ): { moveAmount: number; hasChanges: boolean } {
     const { speed, safeDelta, playerPos, minLane, maxLane, playerLane, eagleSlowSpeed, eagleFastSpeed, eagleRetreatSpeed } = ctx;
@@ -187,7 +194,7 @@ export function processEagleMovement(
  * Cat moves diagonally across lanes, then jumps to player's lane
  */
 export function processCatMovement(
-    obj: GameObject,
+    obj: CatObject,
     ctx: MovementContext,
     keptObjects: GameObject[]
 ): { hasChanges: boolean; newSpawns: GameObject[] } {
@@ -270,7 +277,7 @@ export function processCatMovement(
  * Snake moves forward and changes lanes periodically
  */
 export function processSnakeMovement(
-    obj: GameObject,
+    obj: SnakeObject,
     ctx: MovementContext,
     keptObjects: GameObject[]
 ): void {
@@ -333,11 +340,11 @@ export function processSnakeMovement(
  * Process boss movement and attack patterns
  */
 export function processBossMovement(
-    obj: GameObject,
+    obj: BossObject,
     ctx: MovementContext,
     completeBossDeath: () => void
 ): { hasChanges: boolean; newSpawns: GameObject[] } {
-    const { speed, safeDelta, time, laneCount, level } = ctx;
+    const { speed, safeDelta, time, laneCount, level, difficulty } = ctx;
     let hasChanges = false;
     const newSpawns: GameObject[] = [];
 
@@ -387,6 +394,29 @@ export function processBossMovement(
         return { hasChanges, newSpawns };
     }
 
+    // ENTERING PHASE - Boss approaching from spawn position to normal position
+    // During this phase: invulnerable, no shooting, moving at 100% road speed
+    if (obj.isEntering) {
+        const enterSpeed = speed * BOSS_MOVEMENT.ENTER_SPEED_MULT;
+        obj.position[2] += enterSpeed * safeDelta;
+
+        // Keep centered while entering
+        obj.position[0] = 0;
+        obj.position[1] = 0;
+
+        // Check if reached normal position
+        if (obj.position[2] >= BOSS_MOVEMENT.NORMAL_POSITION_Z) {
+            obj.position[2] = BOSS_MOVEMENT.NORMAL_POSITION_Z;
+            obj.isEntering = false; // Now vulnerable and can attack
+            // Reset timers for normal behavior
+            obj.attackTimer = 0;
+            obj.chargeTimer = 0;
+        }
+
+        hasChanges = true;
+        return { hasChanges, newSpawns };
+    }
+
     // NORMAL BOSS BEHAVIOR
     if (!obj.attackTimer) obj.attackTimer = 0;
     if (obj.chargeTimer === undefined) obj.chargeTimer = 0;
@@ -410,6 +440,18 @@ export function processBossMovement(
     const returnSpeed = speed * BOSS_MOVEMENT.RETURN_SPEED_MULT;
     const bossLateralSpeed = speed * BOSS_MOVEMENT.LATERAL_SPEED_MULT;
 
+    // Boss charge distance by level and difficulty (manually tuned)
+    // EASY:   [45, 46, 47, 48, 50]
+    // MEDIUM: [45, 46.5, 48, 49.5, 52]
+    // HARD:   [45, 47, 49, 51, 54]
+    const CHARGE_DISTANCES: Record<number, number[]> = {
+        0: [-45, -46, -47, -48, -50],      // EASY
+        1: [-45, -46.5, -48, -49.5, -52],  // MEDIUM
+        2: [-45, -47, -49, -51, -54],      // HARD
+    };
+    const levelIndex = Math.min(Math.max(level - 1, 0), 4);
+    const dynamicBackPositionZ = CHARGE_DISTANCES[difficulty]?.[levelIndex] ?? -45;
+
     const chargeWidth = level >= 5 ? 3 : (level >= 2 ? 2 : 1);
 
     if (obj.chargeTimer >= obj.nextChargeInterval && obj.chargePhase === 0) {
@@ -420,22 +462,38 @@ export function processBossMovement(
 
         const { min: minLane, max: maxLane } = getLaneBounds(laneCount);
 
-        if (level === 1) {
+        // chargeLane = CENTER of attack zone (consistent across all widths)
+        // Width 1: integer lane (0, 1, -1...), zone = [chargeLane]
+        // Width 2: half lane (0.5, 1.5, -0.5...), zone = [floor, ceil] = two adjacent lanes
+        // Width 3: integer lane, zone = [chargeLane-1, chargeLane, chargeLane+1]
+        if (chargeWidth === 1) {
+            // Any lane from minLane to maxLane
             obj.chargeLane = Math.floor(Math.random() * (maxLane - minLane + 1)) + minLane;
+        } else if (chargeWidth === 2) {
+            // Center between two lanes: minLane+0.5 to maxLane-0.5
+            // E.g., 4 lanes (-1, 0, 1, 2): centers are -0.5, 0.5, 1.5
+            const numPairs = maxLane - minLane; // number of valid pair centers
+            const pairIndex = Math.floor(Math.random() * numPairs);
+            obj.chargeLane = minLane + pairIndex + 0.5;
         } else {
-            const innerMin = minLane + 1;
-            const innerMax = maxLane - 1;
-            if (innerMin <= innerMax) {
-                obj.chargeLane = Math.floor(Math.random() * (innerMax - innerMin + 1)) + innerMin;
+            // Center lane for width 3: minLane+1 to maxLane-1
+            const validMin = minLane + 1;
+            const validMax = maxLane - 1;
+            if (validMin <= validMax) {
+                obj.chargeLane = Math.floor(Math.random() * (validMax - validMin + 1)) + validMin;
             } else {
                 obj.chargeLane = 0;
             }
         }
     }
 
+    // Boss X position = center of attack zone
+    // chargeLane is always the center (integer for width 1/3, half for width 2)
+    const chargeCenterX = obj.chargeLane * LANE_WIDTH;
+
     if (obj.chargePhase === 1) {
         obj.position[2] -= retreatSpeed * safeDelta;
-        const bossTargetX = obj.chargeLane * LANE_WIDTH;
+        const bossTargetX = chargeCenterX;
         const bossLaneDir = Math.sign(bossTargetX - obj.position[0]);
         const bossLaneDist = Math.abs(bossTargetX - obj.position[0]);
         if (bossLaneDist > 0.05) {
@@ -444,23 +502,23 @@ export function processBossMovement(
             obj.position[0] = bossTargetX;
         }
 
-        if (obj.position[2] <= BOSS_MOVEMENT.BACK_POSITION_Z) {
+        if (obj.position[2] <= dynamicBackPositionZ) {
             obj.chargePhase = 2;
-            obj.position[2] = BOSS_MOVEMENT.BACK_POSITION_Z;
-            obj.position[0] = obj.chargeLane * LANE_WIDTH;
+            obj.position[2] = dynamicBackPositionZ;
+            obj.position[0] = chargeCenterX;
         }
     } else if (obj.chargePhase === 2) {
         obj.position[2] += chargeSpeed * safeDelta;
-        obj.position[0] = obj.chargeLane * LANE_WIDTH;
+        obj.position[0] = chargeCenterX;
 
         if (obj.position[2] >= 0) {
             obj.chargePhase = 3;
             obj.position[2] = 0;
         }
     } else if (obj.chargePhase === 3) {
-        // Retreating back - stay in charge lane
+        // Retreating back - stay in charge center
         obj.position[2] -= returnSpeed * safeDelta;
-        obj.position[0] = obj.chargeLane * LANE_WIDTH; // Stay in charge lane
+        obj.position[0] = chargeCenterX;
 
         if (obj.position[2] <= BOSS_MOVEMENT.NORMAL_POSITION_Z) {
             obj.chargePhase = 4; // New phase: hold position before resuming movement
@@ -535,9 +593,15 @@ export function getBaseMovementAmount(
 ): number {
     switch (obj.type) {
         case ObjectType.PROJECTILE:
-            return -PROJECTILE_SPEED * safeDelta;
+            // Player projectiles: 130% road speed (min 45, max 65), Firewall: 150% (min 60, max 80)
+            if (isProjectile(obj) && obj.isFirewall) {
+                const firewallSpeed = Math.min(Math.max(speed * SPEED_MULTIPLIERS.FIREWALL, 60), 80);
+                return -firewallSpeed * safeDelta;
+            }
+            const projectileSpeed = Math.min(Math.max(speed * SPEED_MULTIPLIERS.PROJECTILE, 45), 65);
+            return -projectileSpeed * safeDelta;
         case ObjectType.BOSS_AMMO:
-            return BOSS_AMMO_SPEED * safeDelta;
+            return speed * safeDelta; // Sync with road speed (100%)
         case ObjectType.SNAKE:
             return dist * SNAKE_MOVEMENT.FORWARD_SPEED_MULT;
         case ObjectType.BOSS:
@@ -545,8 +609,44 @@ export function getBaseMovementAmount(
         case ObjectType.EAGLE:
             return 0; // Handled separately
         case ObjectType.CAT:
-            return dist * 0.9; // Base movement, adjusted in processCatMovement
+            return dist * SPEED_MULTIPLIERS.MOUSETRAP;
+        case ObjectType.LETTER:
+            return speed * SPEED_MULTIPLIERS.LETTER * safeDelta;
+        case ObjectType.POWERUP:
+            return speed * SPEED_MULTIPLIERS.POWERUP * safeDelta;
+        case ObjectType.CHEESE:
+            return dist * SPEED_MULTIPLIERS.CHEESE;
+        case ObjectType.MOUSETRAP:
+            return dist * SPEED_MULTIPLIERS.MOUSETRAP;
         default:
-            return dist * 0.9; // Default mousetrap speed
+            return dist * SPEED_MULTIPLIERS.MOUSETRAP;
     }
+}
+
+/**
+ * Calculate height offset for projectile trajectory during boss fight
+ * Projectiles fly in a straight line from bottom upward towards boss belly
+ * Linear interpolation from start height to target height
+ */
+export function calculateProjectileArcHeight(
+    currentZ: number,
+    startZ: number,
+    arcEnabled: boolean
+): number {
+    if (!arcEnabled) return 0;
+
+    // Boss is at z=-25, projectile starts at z=0
+    const BOSS_Z = BOSS_MOVEMENT.NORMAL_POSITION_Z; // -25
+    const TARGET_HEIGHT = 2.5; // Boss belly height
+
+    const totalDistance = startZ - BOSS_Z; // Total distance to travel
+    const distanceTraveled = startZ - currentZ; // How far we've gone
+
+    if (totalDistance <= 0) return 0;
+
+    // Normalize progress (0 to 1)
+    const progress = Math.min(distanceTraveled / totalDistance, 1);
+
+    // Linear interpolation: straight line from 0 to TARGET_HEIGHT
+    return TARGET_HEIGHT * progress;
 }

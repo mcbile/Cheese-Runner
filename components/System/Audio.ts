@@ -38,7 +38,7 @@ export class AudioController {
     get isMuted() { return this.system.isMuted; }
     get isUnlocked() { return this.system.isUnlocked; }
 
-    init() { this.system.init(); }
+    async init() { await this.system.init(); }
     async forceUnlock() { await this.system.forceUnlock(); }
     toggleMute(muted: boolean) { this.system.toggleMute(muted); }
     pauseAudio() { this.system.pauseAudio(); }
@@ -46,7 +46,7 @@ export class AudioController {
 
     // --- Music ---
 
-    startMusic() { this.music.start(); }
+    async startMusic() { await this.music.start(); }
     stopMusic() { this.music.stop(); }
 
     // --- SFX ---

@@ -42,9 +42,9 @@ export const CONSUMABLES: ShopItem[] = [
 export const UPGRADES: ShopItem[] = [
     {
         id: 'MAX_LIFE',
-        name: 'EXTRA HEART',
-        description: '+1 Max Life & Heal.',
-        details: 'Permanently increases your health bar by one heart and restores 1 HP. Cost is 10x your current Bet.',
+        name: 'EXTRA LIFE',
+        description: '+1 Max Life & Full Heal.',
+        details: 'Permanently increases your health bar by one heart and fully restores HP. Cost is 10x your current Bet.',
         cost: 10,
         currency: 'EURO',
         priceType: 'BET_MULTIPLIER',
@@ -65,7 +65,7 @@ export const UPGRADES: ShopItem[] = [
     },
     {
         id: 'INSTANT_CHEESE',
-        name: 'MORE CHEESE',
+        name: 'CHEESE EXCHANGE',
         description: 'Instant +5000 Points.',
         details: 'Instantly adds 5000 Cheese Points to your score. Cost is 30x your current Bet.',
         cost: 30,

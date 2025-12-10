@@ -95,7 +95,8 @@ export const EAGLE_HEAD_GEO = new THREE.SphereGeometry(0.25, LOD.LOW, LOD.LOW);
 export const EAGLE_BEAK_GEO = new THREE.ConeGeometry(0.1, 0.3, 4);
 
 // --- PROJECTILE GEOMETRIES ---
-export const PROJECTILE_GEO = new THREE.CylinderGeometry(0.075, 0.075, 1.0, LOD.TINY);
+// Yellow sphere projectile: 37.5% of firewall size, radius = 0.34
+export const PROJECTILE_GEO = new THREE.SphereGeometry(0.34, LOD.LOW, LOD.LOW);
 
 // --- CAT GEOMETRIES ---
 export const CAT_BODY_GEO = new THREE.CapsuleGeometry(0.35, 1.0, 4, LOD.LOW);
