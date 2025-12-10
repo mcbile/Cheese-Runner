@@ -250,6 +250,7 @@ export const HUD: React.FC<HUDProps> = ({ onStartRun, hideMenu }) => {
                     <button
                         onClick={(e) => { e.currentTarget.blur(); pauseGame(); }}
                         tabIndex={-1}
+                        aria-label="Настройки"
                         className="pointer-events-auto opacity-80 hover:opacity-100 transition-opacity flex items-center justify-center bg-[#0F172A]/60 border border-yellow-900/30 rounded-lg backdrop-blur-sm px-3 py-3 mt-1"
                     >
                         <span className="text-2xl">⚙️</span>

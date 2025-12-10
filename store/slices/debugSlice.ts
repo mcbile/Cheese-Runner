@@ -10,8 +10,8 @@ import { GameStatus, getLevelStartSpeed } from '../../types';
 import { GameStore, DebugSlice } from '../types';
 import { INITIAL_STATS, getLaneCountForLevel } from '../utils';
 
-// Dev password
-const DEV_PASSWORD = 'Ch3353';
+// Dev password from environment variable (Vite uses import.meta.env.VITE_*)
+const DEV_PASSWORD = import.meta.env.VITE_DEV_PASSWORD || '';
 
 export const createDebugSlice: StateCreator<GameStore, [], [], DebugSlice> = (set, get) => ({
     isDevMode: false,

@@ -380,6 +380,7 @@ export const SettingsScreen: React.FC = () => {
                         {/* BAG Card - clickable */}
                         <button
                             onClick={handleBagOpen}
+                            aria-label="Открыть рюкзак"
                             className="bg-white/5 rounded-xl border border-emerald-500/40 p-3 flex flex-col items-center hover:bg-white/10 transition-colors active:scale-95"
                         >
                             <h3 className="text-sm font-black uppercase tracking-wider mb-2 text-center text-emerald-400">
@@ -403,12 +404,14 @@ export const SettingsScreen: React.FC = () => {
                 <div className="flex items-center gap-2 p-3 border-t border-white/10 bg-black/20 shrink-0">
                     <button
                         onClick={handleRestartClick}
+                        aria-label="Перезапустить уровень"
                         className="flex-1 py-2.5 rounded-xl font-black tracking-wider uppercase border-2 transition-all flex items-center justify-center gap-1 text-sm bg-[#21468B] text-white border-white hover:bg-[#2a5ab0] active:scale-95"
                     >
                         <RotateCcw className="w-4 h-4" /> RESTART
                     </button>
                     <button
                         onClick={handleHomeClick}
+                        aria-label="В главное меню"
                         className="w-12 shrink-0 py-2.5 rounded-xl bg-white text-[#21468B] font-black border-2 border-[#21468B] hover:bg-gray-100 active:scale-95 transition-all flex items-center justify-center"
                         title="Home"
                     >
@@ -416,6 +419,7 @@ export const SettingsScreen: React.FC = () => {
                     </button>
                     <button
                         onClick={resumeGame}
+                        aria-label="Продолжить игру"
                         className="flex-1 py-2.5 rounded-xl font-black tracking-wider uppercase border-2 transition-all flex items-center justify-center gap-1 text-sm bg-[#FF6B00] text-white border-white hover:bg-[#FF8C00] active:scale-95"
                     >
                         RESUME <Play className="w-4 h-4" />

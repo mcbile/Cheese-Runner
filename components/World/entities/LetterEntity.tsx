@@ -11,7 +11,6 @@ import * as THREE from 'three';
 import { Float, Text3D, Center } from '@react-three/drei';
 import { LetterObject, GameStatus } from '../../../types';
 import { useStore } from '../../../store';
-import { SHADOW_LETTER_GEO } from '../geometries';
 
 interface LetterEntityProps {
     data: LetterObject;
@@ -23,9 +22,9 @@ interface LetterEntityProps {
 const CheeseO: React.FC<{ groupRef: React.RefObject<THREE.Mesh> }> = ({ groupRef }) => {
     const texture = useLoader(THREE.TextureLoader, '/O.png');
 
-    // Create cylinder geometry for cheese wheel
+    // Create cylinder geometry for cheese wheel (20% smaller: scale 0.8)
     const geometry = useMemo(() => {
-        return new THREE.CylinderGeometry(1.2, 1.2, 0.4, 32);
+        return new THREE.CylinderGeometry(0.96, 0.96, 0.32, 32);
     }, []);
 
     // Material for the cheese sides (yellow edge)
@@ -73,9 +72,9 @@ export const LetterEntity: React.FC<LetterEntityProps> = ({ data }) => {
     // targetIndex corresponds to position in KAASINO: K=0, A=1, A=2, S=3, I=4, N=5, O=6
     const isCollected = collectedLetters.includes(data.targetIndex);
 
-    // Beige/cream color theme for regular letters
-    const letterColor = '#F5DEB3'; // Wheat/beige
-    const emissiveColor = '#DEB887'; // Burlywood - warm beige glow
+    // Golden color theme for all letters
+    const letterColor = '#FFD700'; // Gold
+    const emissiveColor = '#FFCC00'; // Golden glow
 
     // Check if this is letter O (cheese wheel)
     const isLetterO = data.value === 'O';
@@ -117,7 +116,7 @@ export const LetterEntity: React.FC<LetterEntityProps> = ({ data }) => {
                         <Text3D
                             ref={letterRef}
                             font="/fonts/helvetiker_bold.typeface.json"
-                            size={1.8}
+                            size={1.44}
                             height={0.4}
                             curveSegments={12}
                             bevelEnabled
@@ -129,7 +128,7 @@ export const LetterEntity: React.FC<LetterEntityProps> = ({ data }) => {
                             <meshStandardMaterial
                                 color={letterColor}
                                 emissive={emissiveColor}
-                                emissiveIntensity={0.8}
+                                emissiveIntensity={1.0}
                                 metalness={0.3}
                                 roughness={0.2}
                             />
@@ -138,25 +137,12 @@ export const LetterEntity: React.FC<LetterEntityProps> = ({ data }) => {
                 )}
             </Float>
 
-            {/* Bright point light for glow effect */}
+            {/* Single point light for golden glow effect */}
             <pointLight
-                color={isLetterO ? '#FFD700' : '#F5DEB3'}
-                intensity={isLetterO ? 10 : 8}
+                color="#FFD700"
+                intensity={10}
                 distance={12}
             />
-
-            {/* Secondary ambient glow */}
-            <pointLight
-                color={isLetterO ? '#FFAA00' : '#DEB887'}
-                intensity={isLetterO ? 6 : 4}
-                distance={6}
-                position={[0, 1, 0]}
-            />
-
-            {/* Shadow on ground */}
-            <mesh geometry={SHADOW_LETTER_GEO} position={[0, -1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <meshBasicMaterial color="#000000" opacity={0.4} transparent />
-            </mesh>
         </group>
     );
 };

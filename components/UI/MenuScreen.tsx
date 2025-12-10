@@ -28,8 +28,8 @@ export const BetControl: React.FC = () => {
                         <input type="number" id="bet-amount-input" name="bet-amount" autoComplete="off" step="0.1" min="0.1" max="50" value={betAmount} onChange={handleChange} className="w-full bg-transparent py-1 px-2 text-center text-red-400 font-mono font-black text-[26px] focus:outline-none appearance-none" />
                     </div>
                     <div className="flex flex-col gap-0.5 ml-1">
-                        <button onClick={() => adjust(0.1)} className="w-6 h-5 bg-white/10 hover:bg-white/20 rounded flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all"><ChevronUp className="w-4 h-4" /></button>
-                        <button onClick={() => adjust(-0.1)} className="w-6 h-5 bg-white/10 hover:bg-white/20 rounded flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={() => adjust(0.1)} aria-label="Увеличить ставку" className="w-6 h-5 bg-white/10 hover:bg-white/20 rounded flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={() => adjust(-0.1)} aria-label="Уменьшить ставку" className="w-6 h-5 bg-white/10 hover:bg-white/20 rounded flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all"><ChevronDown className="w-4 h-4" /></button>
                     </div>
                 </div>
                 <div className="text-xs text-gray-300 font-bold uppercase tracking-wider">🎯 Shot Cost</div>
@@ -129,13 +129,13 @@ export const MenuScreen: React.FC<MenuScreenProps> = ({ onStartRun }) => {
                 <BetControl />
 
                 <div className="flex flex-col w-full gap-2 shrink-0">
-                    <button onClick={handleStartRun} className="w-full py-3.5 text-xl rounded-xl bg-[#AE1C28] text-white font-black tracking-widest uppercase border-2 border-white shadow-lg hover:bg-[#D32F2F] active:scale-95 transition-all flex items-center justify-center relative overflow-hidden">
+                    <button onClick={handleStartRun} aria-label="Начать игру" className="w-full py-3.5 text-xl rounded-xl bg-[#AE1C28] text-white font-black tracking-widest uppercase border-2 border-white shadow-lg hover:bg-[#D32F2F] active:scale-95 transition-all flex items-center justify-center relative overflow-hidden">
                         <span style={BUTTON_TEXT_GLOW} className="relative z-10 flex items-center justify-center">START RUN <Play className="ml-2 w-5 h-5 fill-current" /></span>
                     </button>
 
                     <DifficultySelector />
 
-                    <button onClick={() => setShowAbout(true)} className="w-full py-3 text-base rounded-xl bg-[#21468B] text-white font-black tracking-widest uppercase border-2 border-white shadow-lg hover:bg-[#2B5BA7] active:scale-95 transition-all flex items-center justify-center relative overflow-hidden">
+                    <button onClick={() => setShowAbout(true)} aria-label="Об игре" className="w-full py-3 text-base rounded-xl bg-[#21468B] text-white font-black tracking-widest uppercase border-2 border-white shadow-lg hover:bg-[#2B5BA7] active:scale-95 transition-all flex items-center justify-center relative overflow-hidden">
                         <span style={BUTTON_TEXT_GLOW} className="relative z-10 flex items-center justify-center"><BookOpen className="mr-2 w-5 h-5" /> ABOUT GAME</span>
                     </button>
                 </div>

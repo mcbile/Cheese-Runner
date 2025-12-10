@@ -46,12 +46,14 @@ export const GameOverScreen: React.FC = () => {
                 <div className="flex gap-2 w-full shrink-0">
                     <button
                         onClick={quitToMenu}
+                        aria-label="В главное меню"
                         className="flex-1 py-3 text-sm rounded-xl bg-[#1E4785] text-white font-black tracking-wider uppercase border-2 border-white shadow-lg hover:bg-[#2B5BA7] active:scale-95 transition-all"
                     >
                         MAIN MENU
                     </button>
                     <button
                         onClick={() => { audio.startMusic(); restartLevel(); }}
+                        aria-label={`Перезапустить уровень ${level}`}
                         className="flex-1 py-3 text-sm rounded-xl bg-[#FF6B00] text-white font-black tracking-wider uppercase border-2 border-white shadow-lg hover:bg-[#FF8C00] active:scale-95 transition-all"
                     >
                         RESTART LVL {level}
