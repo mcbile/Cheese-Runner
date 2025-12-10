@@ -299,7 +299,7 @@ export function createPortal(): ShopPortalObject {
     if (existing) {
         existing.position[0] = 0;
         existing.position[1] = 0;
-        existing.position[2] = -50;
+        existing.position[2] = -60;
         existing.active = true;
         return existing;
     }
@@ -307,7 +307,7 @@ export function createPortal(): ShopPortalObject {
     return {
         id: generateId(),
         type: ObjectType.SHOP_PORTAL,
-        position: [0, 0, -50],
+        position: [0, 0, -60],
         active: true
     };
 }

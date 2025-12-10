@@ -597,7 +597,7 @@ export function getLaneBounds(laneCount: number): LaneBounds {
 
 // Boss death slowdown constants (used in LevelManager)
 export const BOSS_DEATH_CONFIG = {
-    SLOWDOWN_START_Z: -50,      // Z position where slowdown begins
+    SLOWDOWN_START_Z: -60,      // Z position where slowdown begins (portal spawn position)
     SLOWDOWN_END_Z: -15,        // Z position where slowdown completes
     TARGET_SPEED: 10            // Target speed after boss death (m/s)
 } as const;

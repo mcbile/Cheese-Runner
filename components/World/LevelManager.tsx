@@ -261,7 +261,7 @@ export const LevelManager: React.FC = () => {
                 portalRef.current = objectsRef.current.find(o => o.type === ObjectType.SHOP_PORTAL && o.active) || null;
             }
             const portal = portalRef.current;
-            const portalZ = portal ? portal.position[2] : -50; // Default to spawn position
+            const portalZ = portal ? portal.position[2] : BOSS_DEATH_CONFIG.SLOWDOWN_START_Z; // Default to portal spawn position (-60)
 
             // Calculate slowdown based on portal position using constants
             const { SLOWDOWN_START_Z, SLOWDOWN_END_Z, TARGET_SPEED } = BOSS_DEATH_CONFIG;

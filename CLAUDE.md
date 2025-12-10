@@ -93,7 +93,10 @@ Handles all dynamic game objects via event-driven architecture:
 - `POWERUP` - Temporary abilities (FIREWALL, SPEED_BOOST, HEART)
 
 **Spawning Logic**:
-- Objects spawn at SPAWN_DISTANCE (120 units) ahead, removed at REMOVE_DISTANCE (-20 units) behind
+- Objects spawn at dynamic distances based on type and speed (see SPAWN_DISTANCES in types.ts):
+  - Boss: z=-90, Collectibles: z=-85, Enemies: z=-80 (at base speed)
+  - Formula: `spawnZ = baseZ - (speed - 18) × 1.5`
+- Objects removed at REMOVE_DISTANCE (20 units) behind player
 - Letter spacing increases exponentially per level: `BASE_INTERVAL * 1.5^(level-1)`
 - Boss sequence triggers when all 7 letters collected (wordCompleted flag)
 - Enemy spawn triggers: 1 Cat spawns after every 2 Snake kills → 1 Owl spawns after every Cat kill
@@ -155,8 +158,15 @@ LANE_WIDTH = 2.2
 JUMP_HEIGHT = 2.5
 JUMP_DURATION = 0.6
 RUN_SPEED_BASE = 18.0
-SPAWN_DISTANCE = 120
 REMOVE_DISTANCE = 20
+
+// Per-type spawn distances (at base speed 18 m/s)
+SPAWN_DISTANCES = {
+    BOSS: -90,
+    COLLECTIBLES: -85,
+    ENEMY: -80
+}
+// Dynamic: spawnZ = baseZ - (speed - 18) × 1.5
 ```
 
 ## Development Tips
