@@ -15,6 +15,17 @@ interface State {
     error: Error | null;
 }
 
+// Storage key for crash recovery data
+const CRASH_RECOVERY_KEY = 'cheese-runner-crash-recovery';
+
+interface CrashRecoveryData {
+    balance: number;
+    level: number;
+    difficulty: string;
+    timestamp: number;
+    errorMessage: string;
+}
+
 export class ErrorBoundary extends Component<Props, State> {
     constructor(props: Props) {
         super(props);
@@ -28,6 +39,65 @@ export class ErrorBoundary extends Component<Props, State> {
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
         console.error('Game Error:', error);
         console.error('Error Info:', errorInfo.componentStack);
+
+        // Save critical game data for recovery
+        this.saveCrashRecoveryData(error);
+    }
+
+    /**
+     * Save critical game state to localStorage for potential recovery
+     */
+    private saveCrashRecoveryData(error: Error): void {
+        try {
+            // Dynamically import store to avoid circular dependencies
+            // Using require for synchronous access in error handler
+            const storeModule = require('../../store');
+            const state = storeModule.useStore?.getState?.();
+
+            if (state) {
+                const recoveryData: CrashRecoveryData = {
+                    balance: state.balance ?? 0,
+                    level: state.level ?? 1,
+                    difficulty: state.difficulty ?? 'MEDIUM',
+                    timestamp: Date.now(),
+                    errorMessage: error.message
+                };
+
+                localStorage.setItem(CRASH_RECOVERY_KEY, JSON.stringify(recoveryData));
+                console.log('[ErrorBoundary] Crash recovery data saved');
+            }
+        } catch (storageError) {
+            console.warn('[ErrorBoundary] Failed to save crash recovery data:', storageError);
+        }
+    }
+
+    /**
+     * Check if there's recoverable data from a previous crash
+     */
+    static getRecoveryData(): CrashRecoveryData | null {
+        try {
+            const data = localStorage.getItem(CRASH_RECOVERY_KEY);
+            if (data) {
+                const parsed = JSON.parse(data) as CrashRecoveryData;
+                // Only use recovery data if it's less than 1 hour old
+                const oneHour = 60 * 60 * 1000;
+                if (Date.now() - parsed.timestamp < oneHour) {
+                    return parsed;
+                }
+                // Clear stale recovery data
+                localStorage.removeItem(CRASH_RECOVERY_KEY);
+            }
+        } catch {
+            // Ignore parse errors
+        }
+        return null;
+    }
+
+    /**
+     * Clear recovery data after successful restart
+     */
+    static clearRecoveryData(): void {
+        localStorage.removeItem(CRASH_RECOVERY_KEY);
     }
 
     handleRetry = (): void => {

@@ -10,7 +10,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../store';
-import { GameObject, ObjectType, LANE_WIDTH, SPAWN_DISTANCE, REMOVE_DISTANCE, GameStatus, PowerUpType, PlayerShootEvent, GameEvents, getLaneBounds, Difficulty, MoneyEffectObject } from '../../types';
+import { GameObject, ObjectType, LANE_WIDTH, SPAWN_DISTANCE, REMOVE_DISTANCE, GameStatus, PowerUpType, PlayerShootEvent, GameEvents, getLaneBounds, Difficulty, MoneyEffectObject, BOSS_DEATH_CONFIG, COLLISION_CONFIG, DEFAULT_SPAWN_Z } from '../../types';
 import { mobileUtils } from '../System/MobileUtils';
 
 // Import modular systems
@@ -199,8 +199,8 @@ export const LevelManager: React.FC = () => {
         const handleShoot = (e: PlayerShootEvent) => {
             if (status !== GameStatus.PLAYING) return;
             const { position } = e.detail;
-            const isFirewall = useStore.getState().isFirewallActive;
-            const isBossFight = useStore.getState().isBossActive;
+            // Single getState() call instead of multiple
+            const { isFirewallActive: isFirewall, isBossActive: isBossFight } = useStore.getState();
 
             // Snap projectile to exact lane center for reliable collision detection
             const currentLane = Math.round(position[0] / LANE_WIDTH);
@@ -238,9 +238,11 @@ export const LevelManager: React.FC = () => {
         if (status !== GameStatus.PLAYING || isDevMode) return;
 
         try {
-            const isFever = useStore.getState().isCheeseFeverActive;
-            const isBossFight = useStore.getState().isBossActive;
-            const safeDelta = Math.min(delta, 0.05);
+            // Single getState() call for all needed values (performance optimization)
+            const storeSnapshot = useStore.getState();
+            const isFever = storeSnapshot.isCheeseFeverActive;
+            const isBossFight = storeSnapshot.isBossActive;
+            const safeDelta = Math.min(delta, COLLISION_CONFIG.DELTA_CAP);
             const dist = speed * safeDelta;
             const time = state.clock.elapsedTime;
 
@@ -261,12 +263,8 @@ export const LevelManager: React.FC = () => {
             const portal = portalRef.current;
             const portalZ = portal ? portal.position[2] : -50; // Default to spawn position
 
-            // Calculate slowdown based on portal position
-            // Portal spawns at z=-50, target slowdown complete at z=-15
-            // Interpolate speed from initial to 10 m/s
-            const SLOWDOWN_START_Z = -50;
-            const SLOWDOWN_END_Z = -15;
-            const TARGET_SPEED = 10;
+            // Calculate slowdown based on portal position using constants
+            const { SLOWDOWN_START_Z, SLOWDOWN_END_Z, TARGET_SPEED } = BOSS_DEATH_CONFIG;
             const initialSpeed = speedBeforeBossDeathRef.current;
 
             if (portalZ >= SLOWDOWN_END_Z) {
@@ -458,7 +456,8 @@ export const LevelManager: React.FC = () => {
         }
 
         // --- SPAWNING ---
-        const levelStats = useStore.getState().levelStats;
+        // Use cached storeSnapshot from top of useFrame
+        const levelStats = storeSnapshot.levelStats;
         const spawningState: SpawningState = {
             level,
             laneCount,
@@ -528,17 +527,24 @@ export const LevelManager: React.FC = () => {
 
         // Regular spawning (only if no boss/portal phase)
         if (!wordCompleted && !isBossFight) {
-            let furthestZ = 0;
-            const staticObjects = keptObjects.filter(o =>
-                o.type !== ObjectType.EAGLE &&
-                o.type !== ObjectType.PROJECTILE &&
-                o.type !== ObjectType.BOSS_AMMO &&
-                o.type !== ObjectType.BOSS
-            );
-            if (staticObjects.length > 0) {
-                furthestZ = Math.min(...staticObjects.map(o => o.position[2]));
-            } else {
-                furthestZ = -20;
+            // Single pass to find furthest static object Z (optimization: O(n) instead of O(2n))
+            let furthestZ = DEFAULT_SPAWN_Z; // Default if no static objects
+            let hasStaticObjects = false;
+            for (const o of keptObjects) {
+                // Skip dynamic objects (eagle, projectile, boss_ammo, boss)
+                if (o.type === ObjectType.EAGLE ||
+                    o.type === ObjectType.PROJECTILE ||
+                    o.type === ObjectType.BOSS_AMMO ||
+                    o.type === ObjectType.BOSS) {
+                    continue;
+                }
+                hasStaticObjects = true;
+                if (o.position[2] < furthestZ) {
+                    furthestZ = o.position[2];
+                }
+            }
+            if (!hasStaticObjects) {
+                furthestZ = DEFAULT_SPAWN_Z;
             }
 
             if (furthestZ > -SPAWN_DISTANCE) {

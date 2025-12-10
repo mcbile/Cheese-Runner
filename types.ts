@@ -594,3 +594,37 @@ export function getLaneBounds(laneCount: number): LaneBounds {
         max: Math.ceil((laneCount - 1) / 2)
     };
 }
+
+// Boss death slowdown constants (used in LevelManager)
+export const BOSS_DEATH_CONFIG = {
+    SLOWDOWN_START_Z: -50,      // Z position where slowdown begins
+    SLOWDOWN_END_Z: -15,        // Z position where slowdown completes
+    TARGET_SPEED: 10            // Target speed after boss death (m/s)
+} as const;
+
+// Camera configuration constants
+export const CAMERA_CONFIG = {
+    EYE_HEIGHT: 1.7,            // First-person camera eye height
+    LERP_SPEED: 12.0,           // Camera interpolation speed
+    FPS_FOV: 75,                // First-person field of view
+    DEFAULT_FOV: 60             // Default third-person field of view
+} as const;
+
+// Collision detection constants (additional)
+export const COLLISION_CONFIG = {
+    BOSS_CHARGE_DISTANCE: 3.0,  // Z distance for boss charge hit detection
+    PORTAL_TRIGGER_DISTANCE: 2, // Z distance to trigger portal entry
+    DELTA_CAP: 0.05             // Max delta time to prevent physics explosions
+} as const;
+
+// Animation timing constants
+export const ANIMATION_CONFIG = {
+    BASE_ANIM_SPEED_RUNNING: 20,
+    BASE_ANIM_SPEED_IDLE: 3,
+    MIN_SPEED_MULTIPLIER: 0.5,
+    MAX_SPEED_MULTIPLIER: 2.0,
+    SPIN_SPEED: 15              // Double jump spin speed
+} as const;
+
+// Default spawn Z when no objects present
+export const DEFAULT_SPAWN_Z = -20;

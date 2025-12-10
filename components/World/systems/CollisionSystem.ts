@@ -7,7 +7,7 @@
  */
 
 import * as THREE from 'three';
-import { GameObject, ObjectType, LANE_WIDTH, REMOVE_DISTANCE, HITBOX, REWARD_MULTIPLIER, CHEESE_FEVER_REWARD } from '../../../types';
+import { GameObject, ObjectType, LANE_WIDTH, REMOVE_DISTANCE, HITBOX, REWARD_MULTIPLIER, CHEESE_FEVER_REWARD, COLLISION_CONFIG } from '../../../types';
 import { audio } from '../../System/Audio';
 import { SpatialGrid } from './SpatialGrid';
 
@@ -69,7 +69,7 @@ export function checkBossChargeCollision(
 
     const dz = Math.abs(obj.position[2] - playerPos.z);
 
-    if (inChargeWidth && dz < 3.0) {
+    if (inChargeWidth && dz < COLLISION_CONFIG.BOSS_CHARGE_DISTANCE) {
         obj.chargeHitPlayer = true;
         callbacks.onPlayerHit();
         // Reduced particles for boss charge hit
@@ -194,7 +194,7 @@ export function checkPortalCollision(
 
     // Check if player is within portal Z range
     const dz = Math.abs(obj.position[2] - playerPos.z);
-    if (dz < 2) {
+    if (dz < COLLISION_CONFIG.PORTAL_TRIGGER_DISTANCE) {
         callbacks.onTriggerLevelComplete();
         obj.active = false;
         return true;
