@@ -136,13 +136,6 @@ export const LetterEntity: React.FC<LetterEntityProps> = ({ data }) => {
                     </Center>
                 )}
             </Float>
-
-            {/* Single point light for golden glow effect */}
-            <pointLight
-                color="#FFD700"
-                intensity={10}
-                distance={12}
-            />
         </group>
     );
 };

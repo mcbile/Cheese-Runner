@@ -542,8 +542,11 @@ export function processBossMovement(
             obj.nextChargeInterval = BOSS_MOVEMENT.MIN_CHARGE_INTERVAL + Math.random() * intervalRange;
         }
     } else {
+        // Idle movement - boss sways side to side
         obj.position[2] = BOSS_MOVEMENT.NORMAL_POSITION_Z;
         obj.position[0] = Math.sin(time * 0.8) * (LANE_WIDTH * ((laneCount - 1) / 2));
+        // Sync chargeLane with actual position for projectile collision detection
+        obj.chargeLane = Math.round(obj.position[0] / LANE_WIDTH);
     }
 
     obj.chargeWidth = chargeWidth;

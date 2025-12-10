@@ -59,8 +59,9 @@ export function useAudioSync() {
             audio.resumeAudio();
         }
 
-        // Resume and start music for next level
-        if (status === GameStatus.LEVEL_PRELOAD && prevStatus === GameStatus.LEVEL_COMPLETE) {
+        // Resume and start music for next level (from LEVEL_COMPLETE or SHOP)
+        if (status === GameStatus.LEVEL_PRELOAD &&
+            (prevStatus === GameStatus.LEVEL_COMPLETE || prevStatus === GameStatus.SHOP)) {
             audio.resumeAudio();
             audio.startMusic();
         }
